@@ -37,7 +37,7 @@ pipeline {
                         transfers: [
                             sshTransfer(
                                 sourceFiles: 'bundle.zip', 
-                                remoteDirectory: '/artifacts',
+                                remoteDirectory: '/artifacts/',
                                 cleanRemote: true
                             )
                         ],

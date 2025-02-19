@@ -22,16 +22,21 @@ pipeline {
             }
         }
 
-        stage('Transfer Artifacts via SSH') {
+        stage('Compress Artifacts') {
+            steps {
+                zip zipFile: 'bundle.zip', dir: 'output/bundle', archive: true
+            }
+        }
+
+        stage('Transfer bundle.zip via SSH') {
             steps {
                 sshPublisher(publishers: [
                     sshPublisherDesc(
                         configName: 'RemoteAnsibleServer',
                         transfers: [
                             sshTransfer(
-                                sourceFiles: 'output/bundle/**', 
-                                removePrefix: 'output/bundle',
-                                remoteDirectory: '/home/vagrant/bundle',
+                                sourceFiles: 'bundle.zip', 
+                                remoteDirectory: '/',
                             )
                         ],
                         verbose: true
@@ -39,11 +44,11 @@ pipeline {
                 ])
             }
         }
-        
+        /*
         stage('Archive Build Artifacts') {
             steps {
                 archiveArtifacts artifacts: 'output/bundle/**', fingerprint: true
             }
-        }
+        }*/
     }
 }

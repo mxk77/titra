@@ -16,9 +16,7 @@ pipeline {
 
         stage('Build Meteor App') {
             steps {
-                dir('titra') {
-                    sh 'meteor build "../" --directory --server=${METEOR_SERVER}'
-                }
+                meteor build ../output --directory --server=http://192.168.50.9:80
             }
         }
 

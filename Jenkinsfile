@@ -6,14 +6,6 @@ pipeline {
     }
     
     stages {
-        stage('Checkout Repository') {
-            steps {
-                dir('titra') {
-                    checkout scm
-                }
-            }
-        }
-        
         stage('Install npm Dependencies') {
             steps {
                 dir('titra') {

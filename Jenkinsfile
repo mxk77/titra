@@ -16,7 +16,7 @@ pipeline {
 
         stage('Build Meteor App') {
             steps {
-                sh 'meteor build "$WORKSPACE/bundle" --directory --server=${METEOR_SERVER}'
+                sh 'meteor build "$WORKSPACE/" --directory --server=${METEOR_SERVER}'
             }
         }
 

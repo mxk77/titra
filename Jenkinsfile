@@ -24,6 +24,7 @@ pipeline {
 
         stage('Compress Artifacts') {
             steps {
+                sh 'rm -f bundle.zip'
                 zip zipFile: 'bundle.zip', dir: 'output/bundle', archive: true
             }
         }

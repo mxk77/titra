@@ -5,6 +5,14 @@ pipeline {
         METEOR_SERVER = "http://192.168.50.9:80"
     }
 
+    stage('Checkout Repository') {
+            steps {
+                dir('titra') {
+                    checkout scm
+                }
+            }
+        }
+
     stages {
         stage('Install npm Dependencies') {
             steps {
@@ -16,13 +24,14 @@ pipeline {
 
         stage('Build Meteor App') {
             steps {
-                sh 'meteor build "../output" --directory --server=${METEOR_SERVER}'
+                    sh 'meteor build "$WORKSPACE/output" --directory --server=${METEOR_SERVER}'
+                }
             }
         }
 
         stage('Archive Build Artifacts') {
             steps {
-                archiveArtifacts artifacts: '../output/bundle/**', fingerprint: true
+                archiveArtifacts artifacts: '/output/bundle/**', fingerprint: true
             }
         }
     }

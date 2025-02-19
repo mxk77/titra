@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'build-agent' }
+    agent { label 'titra' }
 
     environment {
         METEOR_SERVER = "http://192.168.50.9:80"

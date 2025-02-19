@@ -21,6 +21,24 @@ pipeline {
                 }
             }
         }
+
+        stage('Transfer Artifacts via SSH') {
+            steps {
+                sshPublisher(publishers: [
+                    sshPublisherDesc(
+                        configName: 'RemoteAnsibleServer',
+                        transfers: [
+                            sshTransfer(
+                                sourceFiles: 'output/bundle/**', 
+                                removePrefix: 'output/bundle',
+                                remoteDirectory: '/home/vagrant/bundle',
+                            )
+                        ],
+                        verbose: true
+                    )
+                ])
+            }
+        }
         
         stage('Archive Build Artifacts') {
             steps {

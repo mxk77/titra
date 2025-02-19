@@ -16,7 +16,7 @@ pipeline {
 
         stage('Build Meteor App') {
             steps {
-                meteor build ../output --directory --server=http://192.168.50.9:80
+                sh 'meteor build ../output --directory --server=${METEOR_SERVER}'
             }
         }
 

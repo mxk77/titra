@@ -22,7 +22,9 @@ pipeline {
             }
             post {
                 always {
-                    junit 'reports/test-results.xml'
+                    dir('titra') {
+                        junit 'reports/test-results.xml'
+                    }
                 }
             }
         }

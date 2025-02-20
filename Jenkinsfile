@@ -13,6 +13,19 @@ pipeline {
                 }
             }
         }
+
+        stage('Test') {
+            steps {
+                dir('titra') {
+                    sh 'npm test'
+                }
+            }
+            post {
+                always {
+                    junit 'reports/test-results.xml'
+                }
+            }
+        }
         
         stage('Build Meteor App') {
             steps {

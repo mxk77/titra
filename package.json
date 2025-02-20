@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "titra",
   "version": "0.99.29",
   "private": true,

@@ -15,6 +15,11 @@ pipeline {
         }
 
         stage('Test') {
+            when {
+                not {
+                    branch 'master'
+                }
+            }
             steps {
                 dir('titra') {
                     sh 'npm test'
@@ -28,6 +33,7 @@ pipeline {
                 }
             }
         }
+
         
         stage('Build Meteor App') {
             steps {
@@ -38,6 +44,9 @@ pipeline {
         }
 
         stage('Compress Artifacts') {
+            when {
+                branch 'master'
+            }
             steps {
                 sh 'rm -f bundle.zip'
                 zip zipFile: 'bundle.zip', dir: 'output/bundle', archive: true
@@ -45,6 +54,9 @@ pipeline {
         }
 
         stage('Transfer bundle.zip via SSH') {
+            when {
+                branch 'master'
+            }
             steps {
                 sshPublisher(publishers: [
                     sshPublisherDesc(

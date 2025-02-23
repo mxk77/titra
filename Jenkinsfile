@@ -1,11 +1,28 @@
 pipeline {
     agent { label 'titra' }
     
+    options {
+        skipDefaultCheckout()
+    }
+    
     environment {
         METEOR_SERVER = "http://192.168.50.9:80"
     }
     
     stages {
+
+        stage('Checkout') {
+            steps {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: scm.branches,
+                    doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
+                    extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'titra']],
+                    userRemoteConfigs: scm.userRemoteConfigs
+                ])
+            }
+        }
+
         stage('Install npm Dependencies') {
             steps {
                 dir('titra') {

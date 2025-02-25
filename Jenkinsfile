@@ -77,45 +77,47 @@ pipeline {
             steps {
                 dir('titra') {
                     // Ensure you have added your GitHub token as a Jenkins secret (e.g., "github_token")
-                withCredentials([string(credentialsId: 'github_token', variable: 'GITHUB_TOKEN')]) {
-                    script {
-                        def pkg = readJSON file: 'package.json'
-                        def version = pkg.version
+                    withCredentials([string(credentialsId: 'github_token', variable: 'GITHUB_TOKEN')]) {
+                        script {
+                            def pkg = readJSON file: 'package.json'
+                            def version = pkg.version
+                            echo "Package version: ${version}"
 
-                        // Build JSON payload for creating the release using the version from package.json
-                        def releaseData = """
-                        {
-                            "tag_name": "v${version}",
-                            "target_commitish": "master",
-                            "name": "v${version}",
-                            "body": "Release created by Jenkins for version v${version}",
-                            "draft": false,
-                            "prerelease": false
-                        }
-                        """
+                            // Build JSON payload for creating the release using the version from package.json
+                            def releaseData = """
+                            {
+                                "tag_name": "v${version}",
+                                "target_commitish": "master",
+                                "name": "v${version}",
+                                "body": "Release created by Jenkins for version v${version}",
+                                "draft": false,
+                                "prerelease": false
+                            }
+                            """
 
-                        // Create a new GitHub release and capture the API response
-                        def createReleaseResponse = sh(script: """
-                            curl --silent --fail -X POST \\
+                            // Create a new GitHub release and capture the API response
+                            def createReleaseResponse = sh(script: """
+                                curl --silent --fail -X POST \\
+                                -H "Authorization: token ${GITHUB_TOKEN}" \\
+                                -H "Content-Type: application/json" \\
+                                -d '${releaseData}' \\
+                                https://api.github.com/repos/mxk77/titra/releases
+                            """, returnStdout: true).trim()
+
+                            // Parse JSON response to retrieve the upload URL.
+                            def releaseJson = readJSON text: createReleaseResponse
+                            def uploadUrl = releaseJson.upload_url.replaceAll("\\{.*\\}", "")
+                            echo "Upload URL: ${uploadUrl}"
+
+                            // Upload the bundle.zip to the created release.
+                            sh """
+                            curl --fail -X POST \\
                             -H "Authorization: token ${GITHUB_TOKEN}" \\
-                            -H "Content-Type: application/json" \\
-                            -d '${releaseData}' \\
-                            https://api.github.com/repos/mxk77/titra/releases
-                        """, returnStdout: true).trim()
-
-                        // Parse JSON response to retrieve the upload URL.
-                        def releaseJson = readJSON text: createReleaseResponse
-                        def uploadUrl = releaseJson.upload_url.replaceAll("\\{.*\\}", "")
-                        echo "Upload URL: ${uploadUrl}"
-
-                        // Upload the bundle.zip to the created release.
-                        sh """
-                          curl --fail -X POST \
-                          -H "Authorization: token ${GITHUB_TOKEN}" \
-                          -H "Content-Type: application/zip" \
-                          --data-binary @bundle.zip \
-                          "${uploadUrl}?name=bundle.zip"
-                        """
+                            -H "Content-Type: application/zip" \\
+                            --data-binary @bundle.zip \\
+                            "${uploadUrl}?name=bundle.zip"
+                            """
+                        }
                     }
                 }
             }

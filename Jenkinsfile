@@ -75,7 +75,8 @@ pipeline {
                 branch 'master'
             }
             steps {
-                // Ensure you have added your GitHub token as a Jenkins secret (e.g., "github_token")
+                dir('titra') {
+                    // Ensure you have added your GitHub token as a Jenkins secret (e.g., "github_token")
                 withCredentials([string(credentialsId: 'github_token', variable: 'GITHUB_TOKEN')]) {
                     script {
                         def pkg = readJSON file: 'package.json'

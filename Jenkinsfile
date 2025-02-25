@@ -110,10 +110,10 @@ pipeline {
 
                             // Upload the bundle.zip to the created release.
                             sh """#!/bin/bash
-                                curl --fail -X POST \\
+                            curl --fail -X POST \\
                                 -H "Authorization: token \$GITHUB_TOKEN" \\
                                 -H "Content-Type: application/zip" \\
-                                --data-binary @bundle.zip \\
+                                --data-binary @../output/bundle.zip \\
                                 "${uploadUrl}?name=bundle.zip"
                             """
                         }

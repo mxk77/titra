@@ -31,6 +31,19 @@ pipeline {
             }
         }
 
+        stage('Lint Code') {
+            when {
+                not {
+                    branch 'master'
+                }
+            }
+            steps {
+                dir('titra') {
+                    sh 'npm run lint'
+                }
+            }
+        }
+
         stage('Test') {
             when {
                 not {

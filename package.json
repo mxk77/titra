@@ -1,11 +1,13 @@
 {
   "type": "module",
   "name": "titra",
-  "version": "0.99.88",
+  "version": "0.99.77",
   "private": true,
   "scripts": {
     "start": "meteor run",
-    "test": "mocha --reporter mocha-junit-reporter --reporter-options mochaFile=reports/test-results.xml tests/**/*.test.js"
+    "test": "mocha --reporter mocha-junit-reporter --reporter-options mochaFile=reports/test-results.xml tests/**/*.test.js",
+    "lint": "eslint . --format checkstyle -o reports/eslint-report.xml",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@babel/runtime": "^7.26.7",

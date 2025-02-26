@@ -3,6 +3,9 @@
   "name": "titra",
   "version": "0.99.79",
   "private": true,
+    "eslintIgnore": [
+    "imports/api/customers/server/methods.js"
+  ],
   "scripts": {
     "start": "meteor run",
     "test": "mocha --reporter mocha-junit-reporter --reporter-options mochaFile=reports/test-results.xml tests/**/*.test.js",

@@ -1,11 +1,8 @@
 {
   "type": "module",
   "name": "titra",
-  "version": "0.99.79",
+  "version": "0.99.711",
   "private": true,
-    "eslintIgnore": [
-    "imports/api/customers/server/methods.js"
-  ],
   "scripts": {
     "start": "meteor run",
     "test": "mocha --reporter mocha-junit-reporter --reporter-options mochaFile=reports/test-results.xml tests/**/*.test.js",
@@ -64,33 +61,33 @@
     "@babel/core": "^7.x.x",
     "@babel/preset-env": "^7.x.x"
   },
+  "eslintConfig": {
+    "parser": "@babel/eslint-parser",
+    "parserOptions": {
+      "requireConfigFile": false,
+      "babelOptions": {
+        "presets": ["@babel/preset-env"]
+      },
+      "sourceType": "module"
+    },
+    "env": {
+      "browser": true,
+      "node": true,
+      "es6": true
+    },
+    "extends": "airbnb",
+    "rules": {
+      "import/no-cycle": "off"
+    }
+  },
+  "eslintIgnore": [
+    "imports/api/customers/server/methods.js"
+  ],
   "babel": {
     "presets": [
       "@babel/preset-env"
     ]
   },
-  "eslintConfig": {
-  "parser": "@babel/eslint-parser",
-  "parserOptions": {
-    "requireConfigFile": false,
-    "babelOptions": {
-      "presets": ["@babel/preset-env"]
-    },
-    "sourceType": "module"
-  },
-  "extends": [
-    "airbnb",
-    "plugin:meteor/recommended"
-  ],
-  "rules": {
-    "import/no-cycle": "off"
-  },
-  "settings": {
-    "import/resolver": {
-      "meteor": {}
-    }
-  }
-},
   "apidoc": {
     "name": "titra API",
     "version": "0.85.0",
@@ -104,9 +101,9 @@
     }
   },
   "mocha": {
-  "reporter": "mocha-junit-reporter",
-  "reporter-options": {
-    "mochaFile": "./reports/test-results.xml"
+    "reporter": "mocha-junit-reporter",
+    "reporter-options": {
+      "mochaFile": "./reports/test-results.xml"
+    }
   }
-}
 }

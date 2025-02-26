@@ -67,39 +67,27 @@
     ]
   },
   "eslintConfig": {
-    "parser": "@babel/eslint-parser",
-    "parserOptions": {
-      "requireConfigFile": false,
-      "babelOptions": {
-        "presets": [
-          "@babel/preset-env"
-        ]
-      },
-      "sourceType": "module"
+  "parser": "@babel/eslint-parser",
+  "parserOptions": {
+    "requireConfigFile": false,
+    "babelOptions": {
+      "presets": ["@babel/preset-env"]
     },
-    "env": {
-      "browser": true,
-      "node": true,
-      "es2021": true
-    },
-    "extends": [
-      "airbnb",
-      "plugin:meteor/recommended"
-    ],
-    "plugins": [
-      "import",
-      "i18next",
-      "meteor"
-    ],
-    "rules": {
-       "import/no-cycle": "off"
-    },
-    "settings": {
-      "import/resolver": {
-        "meteor": {}
-      }
-    }
+    "sourceType": "module"
   },
+  "extends": [
+    "airbnb",
+    "plugin:meteor/recommended"
+  ],
+  "rules": {
+    "import/no-cycle": "off"
+  },
+  "settings": {
+    "import/resolver": {
+      "meteor": {}
+    }
+  }
+},
   "apidoc": {
     "name": "titra API",
     "version": "0.85.0",

@@ -56,7 +56,9 @@
     "eslint-import-resolver-meteor": "^0.4.0",
     "eslint-plugin-i18next": "^6.1.1",
     "eslint-plugin-import": "^2.31.0",
-    "eslint-plugin-meteor": "^7.3.0"
+    "eslint-plugin-meteor": "^7.3.0",
+    "@babel/eslint-parser": "^7.x.x",
+    "@babel/core": "^7.x.x"
   },
   "apidoc": {
     "name": "titra API",

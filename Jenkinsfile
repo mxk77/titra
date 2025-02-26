@@ -51,7 +51,9 @@ pipeline {
                 }
             }
             steps {
-                recordIssues tools: [checkStyle(pattern: 'reports/eslint-report.xml')]
+                dir('titra'){
+                    recordIssues tools: [checkStyle(pattern: 'reports/eslint-report.xml')]
+                }
             }
         }
 

@@ -6,8 +6,8 @@
   "scripts": {
     "start": "meteor run",
     "test": "mocha --reporter mocha-junit-reporter --reporter-options mochaFile=reports/test-results.xml tests/**/*.test.js",
-    "lint": "eslint . --format checkstyle -o reports/eslint-report.xml",
-    "lint:fix": "eslint . --fix"
+    "lint": "eslint . --ignore-pattern 'imports/*' --ignore-pattern 'server/*' --format checkstyle -o reports/eslint-report.xml",
+    "lint:fix": "eslint . --fix --ignore-pattern 'imports/*' --ignore-pattern 'server/*'"
   },
   "dependencies": {
     "@babel/runtime": "^7.26.7",
@@ -80,12 +80,6 @@
       "import/no-cycle": "off"
     }
   },
-  "eslintIgnore": [
-    "/imports/",
-    "/server/",
-    "/tests/",
-    "/node_modules/"
-  ],
   "babel": {
     "presets": [
       "@babel/preset-env"

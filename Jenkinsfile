@@ -44,6 +44,18 @@ pipeline {
             }
         }
 
+        stage('Publish ESLint Report') {
+            when {
+                not {
+                    branch 'master'
+                }
+            }
+            steps {
+                recordIssues tools: [checkStyle(pattern: 'reports/eslint-report.xml')]
+            }
+        }
+
+
         stage('Test') {
             when {
                 not {

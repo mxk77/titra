@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { ValidatedMethod } from 'meteor/mdg:validated-method'
 import Projects from '../../projects/projects.js'
 import { authenticationMixin } from '../../../utils/server_method_helpers.js'

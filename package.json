@@ -58,7 +58,47 @@
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-meteor": "^7.3.0",
     "@babel/eslint-parser": "^7.x.x",
-    "@babel/core": "^7.x.x"
+    "@babel/core": "^7.x.x",
+    "@babel/preset-env": "^7.x.x"
+  },
+  "babel": {
+    "presets": [
+      "@babel/preset-env"
+    ]
+  },
+  "eslintConfig": {
+    "parser": "@babel/eslint-parser",
+    "parserOptions": {
+      "requireConfigFile": false,
+      "babelOptions": {
+        "presets": [
+          "@babel/preset-env"
+        ]
+      },
+      "sourceType": "module"
+    },
+    "env": {
+      "browser": true,
+      "node": true,
+      "es2021": true
+    },
+    "extends": [
+      "airbnb",
+      "plugin:meteor/recommended"
+    ],
+    "plugins": [
+      "import",
+      "i18next",
+      "meteor"
+    ],
+    "rules": {
+
+    },
+    "settings": {
+      "import/resolver": {
+        "meteor": {}
+      }
+    }
   },
   "apidoc": {
     "name": "titra API",

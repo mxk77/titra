@@ -81,7 +81,10 @@
     }
   },
   "eslintIgnore": [
-    "imports/api/customers/server/methods.js"
+    "/imports/",
+    "/server/",
+    "/tests/",
+    "/node_modules/"
   ],
   "babel": {
     "presets": [

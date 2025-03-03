@@ -1,25 +1,39 @@
 pipeline {
     agent { label 'titra' }
-    
+
+    /////////////////////////////////////////////////////////////
+    // Global pipeline options & environment
+    /////////////////////////////////////////////////////////////
     options {
-        skipDefaultCheckout()
+        // Skip automatic 'checkout scm'
+        skipDefaultCheckout(true)
+        // Discard old builds to keep Jenkins clean
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        // Time out any build taking longer than 10 minutes
+        timeout(time: 10, unit: 'MINUTES')
     }
-    
+
     environment {
         METEOR_SERVER = "http://192.168.50.9:80"
     }
-    
+
+    /////////////////////////////////////////////////////////////
+    // Stages
+    /////////////////////////////////////////////////////////////
     stages {
 
         stage('Checkout') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: scm.branches,
-                    doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
-                    extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'titra']],
-                    userRemoteConfigs: scm.userRemoteConfigs
-                ])
+                script {
+                    // Explicit checkout to subdirectory "titra"
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: scm.branches,
+                        doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
+                        extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'titra']],
+                        userRemoteConfigs: scm.userRemoteConfigs
+                    ])
+                }
             }
         }
 
@@ -31,10 +45,12 @@ pipeline {
             }
         }
 
+        // Optionally run lint on all branches except master (or you can expand to exclude release/hotfix if desired)
         stage('Lint Code') {
             when {
-                not {
-                    branch 'master'
+                expression {
+                    // Example: skip on master & release/hotfix
+                    !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
                 }
             }
             steps {
@@ -46,22 +62,21 @@ pipeline {
 
         stage('Publish ESLint Report') {
             when {
-                not {
-                    branch 'master'
+                expression {
+                    !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
                 }
             }
             steps {
-                dir('titra'){
+                dir('titra') {
                     recordIssues tools: [checkStyle(pattern: 'reports/eslint-report.xml')]
                 }
             }
         }
 
-
         stage('Test') {
             when {
-                not {
-                    branch 'master'
+                expression {
+                    !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
                 }
             }
             steps {
@@ -71,6 +86,7 @@ pipeline {
             }
             post {
                 always {
+                    // Collect test results
                     dir('titra') {
                         junit 'reports/test-results.xml'
                     }
@@ -78,18 +94,27 @@ pipeline {
             }
         }
 
-        
+        // Build the Meteor app on all branches
         stage('Build Meteor App') {
             steps {
                 dir('titra') {
-                    sh 'meteor build "$WORKSPACE/output" --directory --server=${METEOR_SERVER}'
+                    sh '''
+                      meteor build "$WORKSPACE/output" \
+                        --directory \
+                        --server=${METEOR_SERVER}
+                    '''
                 }
             }
         }
 
+        // Compress artifacts only if on master, release, or hotfix
         stage('Compress Artifacts') {
             when {
-                branch 'master'
+                expression {
+                    env.BRANCH_NAME == 'master' || 
+                    env.BRANCH_NAME.startsWith('release/') ||
+                    env.BRANCH_NAME.startsWith('hotfix/')
+                }
             }
             steps {
                 sh 'rm -f bundle.zip'
@@ -97,6 +122,7 @@ pipeline {
             }
         }
 
+        // Publish release to GitHub only on master
         stage('Publish to GitHub Releases') {
             when {
                 branch 'master'
@@ -110,7 +136,7 @@ pipeline {
                             def version = pkg.version
                             echo "Package version: ${version}"
 
-                            // Build release payload and write it to a file to avoid inline interpolation
+                            // Build the release payload
                             def releaseData = """{
                                 "tag_name": "v${version}",
                                 "target_commitish": "master",
@@ -121,27 +147,27 @@ pipeline {
                             }"""
                             writeFile file: 'releaseData.json', text: releaseData
 
-                            // Create the GitHub release using a shell script that reads $GITHUB_TOKEN from the environment.
+                            // Create the GitHub release
                             def createReleaseResponse = sh(script: '''#!/bin/bash
                                 curl --silent --fail -X POST \\
-                                -H "Authorization: token $GITHUB_TOKEN" \\
-                                -H "Content-Type: application/json" \\
-                                -d @releaseData.json \\
-                                https://api.github.com/repos/mxk77/titra/releases
+                                     -H "Authorization: token $GITHUB_TOKEN" \\
+                                     -H "Content-Type: application/json" \\
+                                     -d @releaseData.json \\
+                                     https://api.github.com/repos/mxk77/titra/releases
                             ''', returnStdout: true).trim()
 
-                            // Parse the API response to extract the upload URL.
+                            // Extract the upload URL
                             def releaseJson = readJSON text: createReleaseResponse
                             def uploadUrl = releaseJson.upload_url.replaceAll("\\{.*\\}", "")
                             echo "Upload URL: ${uploadUrl}"
 
-                            // Upload the bundle.zip to the created release.
+                            // Upload the bundle.zip
                             sh """#!/bin/bash
-                            curl --fail -X POST \\
-                                -H "Authorization: token \$GITHUB_TOKEN" \\
-                                -H "Content-Type: application/zip" \\
-                                --data-binary @../bundle.zip \\
-                                "${uploadUrl}?name=bundle.zip"
+                                curl --fail -X POST \\
+                                     -H "Authorization: token \$GITHUB_TOKEN" \\
+                                     -H "Content-Type: application/zip" \\
+                                     --data-binary @../bundle.zip \\
+                                     "${uploadUrl}?name=bundle.zip"
                             """
                         }
                     }
@@ -149,10 +175,14 @@ pipeline {
             }
         }
 
-
+        // Transfer bundle.zip via SSH to a remote server, for production only (master or release/hotfix)
         stage('Transfer bundle.zip via SSH') {
             when {
-                branch 'master'
+                expression {
+                    env.BRANCH_NAME == 'master' ||
+                    env.BRANCH_NAME.startsWith('release/') ||
+                    env.BRANCH_NAME.startsWith('hotfix/')
+                }
             }
             steps {
                 sshPublisher(publishers: [
@@ -160,7 +190,7 @@ pipeline {
                         configName: 'RemoteAnsibleServer',
                         transfers: [
                             sshTransfer(
-                                sourceFiles: 'bundle.zip', 
+                                sourceFiles: 'bundle.zip',
                                 remoteDirectory: '/artifacts/',
                                 cleanRemote: true
                             )
@@ -170,11 +200,21 @@ pipeline {
                 ])
             }
         }
-        /*
-        stage('Archive Build Artifacts') {
-            steps {
-                archiveArtifacts artifacts: 'output/bundle/**', fingerprint: true
-            }
-        }*/
+    }
+
+    /////////////////////////////////////////////////////////////
+    // Post-block for final cleanup or notifications
+    /////////////////////////////////////////////////////////////
+    post {
+        always {
+            // Example: Clean workspace to avoid leftover artifacts
+            cleanWs()
+        }
+        success {
+            echo "Build succeeded on branch: ${env.BRANCH_NAME}"
+        }
+        failure {
+            echo "Build failed on branch: ${env.BRANCH_NAME}"
+        }
     }
 }

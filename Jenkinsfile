@@ -119,56 +119,39 @@ pipeline {
             steps {
                 sh 'rm -f bundle.zip'
                 zip zipFile: 'bundle.zip', dir: 'output/bundle', archive: true
-                stash includes: 'bundle.zip', name: 'bundle'
             }
         }
 
-        // Publish to Github Releases
-        stage('Publish to GitHub Releases') {
+        // Publish to GitHub Releases
+        stage('Publish Release with gh') {
             when { branch 'master' }
             steps {
                 script {
-                    // Unstash the previously stashed file so it's in the workspace.
-                    unstash 'bundle'
-                    // Debug: list workspace contents
-                    sh 'pwd && ls -la'
-                    sh 'chmod +r bundle.zip'
-                    if (!fileExists('bundle.zip')) {
-                        error "bundle.zip not found!"
+                    // Inject the GitHub token into the environment variable GH_TOKEN
+                    withCredentials([string(credentialsId: 'github_token', variable: 'GH_TOKEN')]) {
+                        // Switch to the titra directory where all files are present
+                        dir('titra') {
+                            def pkg = readJSON file: 'package.json'
+                            def version = pkg.version
+                            echo "Package version: ${version}"
+                            
+                            def commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                            echo "Using commit: ${commit}"
+                            
+                            writeFile file: 'release-notes.md', text: "Release created by Jenkins for version v${version}"
+                            
+                            sh """
+                                gh release create v${version} ../bundle.zip \\
+                                    --title "v${version}" \\
+                                    --notes "\$(cat release-notes.md)" \\
+                                    --target ${commit}
+                            """
+                        }
                     }
-                    def pkg = readJSON file: 'titra/package.json'
-                    def version = pkg.version
-                    echo "Package version: ${version}"
-                    // Retrieve commit from within 'titra'
-                    def commit = sh(script: 'git -C titra rev-parse HEAD', returnStdout: true).trim()
-                    echo "Using commit: ${commit}"
-                    // Write release notes in the workspace root
-                    writeFile file: 'release-notes.md', text: "Release created by Jenkins for version v${version}"
-                    // Create release inside 'titra' so that package.json is accessible
-                    dir('titra') {
-                        createGitHubRelease(
-                            repository: 'mxk77/titra',
-                            tag: "v${version}",
-                            commitish: commit,
-                            name: "v${version}",
-                            bodyFile: '../release-notes.md',
-                            draft: false,
-                            prerelease: false,
-                            credentialId: 'github_token'
-                        )
-                    }
-                    // Upload asset using an absolute file path
-                    uploadGithubReleaseAsset(
-                        credentialId: 'github_token',
-                        repository: 'mxk77/titra',
-                        tagName: "v${version}",
-                        uploadAssets: [
-                            [filePath: "${env.WORKSPACE}/bundle.zip"]
-                        ]
-                    )
                 }
             }
         }
+
         // Transfer bundle.zip via SSH to a remote server, for production only (master or release/hotfix)
         stage('Transfer bundle.zip via SSH') {
             when {

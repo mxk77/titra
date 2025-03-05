@@ -128,20 +128,22 @@ pipeline {
                 branch 'master'
             }
             steps {
-                dir('titra') {
-                    script {
+                script {
+                    def version, commit
+                    // Change directory to 'titra' to process package.json and create the release
+                    dir('titra') {
                         def pkg = readJSON file: 'package.json'
-                        def version = pkg.version
+                        version = pkg.version
                         echo "Package version: ${version}"
                         
                         // Retrieve the current commit SHA explicitly
-                        def commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                        commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                         echo "Using commit: ${commit}"
                         
-                        // Write release notes to a file (Markdown)
+                        // Write release notes to a file (Markdown format)
                         writeFile file: 'release-notes.md', text: "Release created by Jenkins for version v${version}"
                         
-                        // Create the GitHub release using the release notes file for the body
+                        // Create the GitHub release using bodyFile to supply the release notes
                         createGitHubRelease(
                             repository: 'mxk77/titra',
                             tag: "v${version}",
@@ -152,21 +154,19 @@ pipeline {
                             prerelease: false,
                             credentialId: 'github_token'
                         )
-                        
-                        // Upload the asset separately
-                        uploadGithubReleaseAsset(
-                            credentialId: 'github_token',
-                            repository: 'mxk77/titra',
-                            tagName: "v${version}",
-                            uploadAssets: [
-                                [filePath: '../bundle.zip']
-                            ]
-                        )
                     }
+                    // Now, run asset upload from the workspace root (where bundle.zip is created)
+                    uploadGithubReleaseAsset(
+                        credentialId: 'github_token',
+                        repository: 'mxk77/titra',
+                        tagName: "v${version}",
+                        uploadAssets: [
+                            [filePath: 'bundle.zip']
+                        ]
+                    )
                 }
             }
         }
-
 
         // Transfer bundle.zip via SSH to a remote server, for production only (master or release/hotfix)
         stage('Transfer bundle.zip via SSH') {

@@ -122,6 +122,7 @@ pipeline {
             }
         }
 
+        // Publish to Github Releases
         stage('Publish to GitHub Releases') {
             when {
                 branch 'master'
@@ -132,6 +133,9 @@ pipeline {
                         def pkg = readJSON file: 'package.json'
                         def version = pkg.version
                         echo "Package version: ${version}"
+
+                        def commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                        echo "Using commit: ${commit}"
                         
                         createGitHubRelease(
                             repository: 'mxk77/titra',

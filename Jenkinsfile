@@ -125,39 +125,39 @@ pipeline {
 
         // Publish to Github Releases
         stage('Publish to GitHub Releases') {
-            when {
-                branch 'master'
-            }
+            when { branch 'master' }
             steps {
-                unstash 'bundle'
                 script {
-                    def version, commit
-                    // Change directory to 'titra' to process package.json and create the release
+                    // Unstash the previously stashed file so it's in the workspace.
+                    unstash 'bundle'
+                    // Debug: list workspace contents
+                    sh 'pwd && ls -la'
+                    sh 'chmod +r bundle.zip'
+                    if (!fileExists('bundle.zip')) {
+                        error "bundle.zip not found!"
+                    }
+                    def pkg = readJSON file: 'titra/package.json'
+                    def version = pkg.version
+                    echo "Package version: ${version}"
+                    // Retrieve commit from within 'titra'
+                    def commit = sh(script: 'git -C titra rev-parse HEAD', returnStdout: true).trim()
+                    echo "Using commit: ${commit}"
+                    // Write release notes in the workspace root
+                    writeFile file: 'release-notes.md', text: "Release created by Jenkins for version v${version}"
+                    // Create release inside 'titra' so that package.json is accessible
                     dir('titra') {
-                        def pkg = readJSON file: 'package.json'
-                        version = pkg.version
-                        echo "Package version: ${version}"
-                        
-                        // Retrieve the current commit SHA explicitly
-                        commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
-                        echo "Using commit: ${commit}"
-                        
-                        // Write release notes to a file (Markdown format)
-                        writeFile file: 'release-notes.md', text: "Release created by Jenkins for version v${version}"
-                        
-                        // Create the GitHub release using bodyFile to supply the release notes
                         createGitHubRelease(
                             repository: 'mxk77/titra',
                             tag: "v${version}",
                             commitish: commit,
                             name: "v${version}",
-                            bodyFile: 'release-notes.md',
+                            bodyFile: '../release-notes.md',
                             draft: false,
                             prerelease: false,
                             credentialId: 'github_token'
                         )
                     }
-                    // Now, run asset upload from the workspace root (where bundle.zip is created)
+                    // Upload asset using an absolute file path
                     uploadGithubReleaseAsset(
                         credentialId: 'github_token',
                         repository: 'mxk77/titra',
@@ -169,7 +169,6 @@ pipeline {
                 }
             }
         }
-
         // Transfer bundle.zip via SSH to a remote server, for production only (master or release/hotfix)
         stage('Transfer bundle.zip via SSH') {
             when {

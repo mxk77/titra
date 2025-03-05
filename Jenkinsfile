@@ -127,31 +127,34 @@ pipeline {
                 branch 'master'
             }
             steps {
-                script {
-                    def pkg = readJSON file: 'package.json'
-                    def version = pkg.version
-                    echo "Package version: ${version}"
-                    
-                    // Create a GitHub release using the plugin-provided step.
-                    githubRelease(
-                        repo: 'mxk77/titra',
-                        tagName: "v${version}",
-                        releaseName: "v${version}",
-                        body: "Release created by Jenkins for version v${version}",
-                        draft: false,
-                        prerelease: false,
-                        credentialsId: 'github_token'
-                    )
-                    
-                    // Upload an asset (bundle.zip) to the created release.
-                    githubUploadAsset(
-                        repo: 'mxk77/titra',
-                        tagName: "v${version}",
-                        file: '../bundle.zip',
-                        assetName: 'bundle.zip',
-                        contentType: 'application/zip',
-                        credentialsId: 'github_token'
-                    )
+                dir('titra') {
+                    script {
+                        def pkg = readJSON file: 'package.json'
+                        def version = pkg.version
+                        echo "Package version: ${version}"
+
+                        // Create a GitHub release using the plugin-provided step.
+                        githubRelease(
+                            repo: 'mxk77/titra',
+                            tagName: "v${version}",
+                            releaseName: "v${version}",
+                            body: "Release created by Jenkins for version v${version}",
+                            draft: false,
+                            prerelease: false,
+                            credentialsId: 'github_token'
+                        )
+
+                        // Upload an asset (bundle.zip) to the created release.
+                        // Note: Adjust the file path if bundle.zip is not in the parent directory.
+                        githubUploadAsset(
+                            repo: 'mxk77/titra',
+                            tagName: "v${version}",
+                            file: '../bundle.zip',
+                            assetName: 'bundle.zip',
+                            contentType: 'application/zip',
+                            credentialsId: 'github_token'
+                        )
+                    }
                 }
             }
         }

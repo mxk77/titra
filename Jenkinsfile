@@ -148,6 +148,7 @@ pipeline {
                         uploadGithubReleaseAsset(
                             repository: 'mxk77/titra',
                             tag: "v${version}",
+                            commitish: env.GIT_COMMIT,
                             filePath: '../bundle.zip',
                             assetName: 'bundle.zip',
                             contentType: 'application/zip',

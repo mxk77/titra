@@ -155,14 +155,13 @@ pipeline {
                             credentialId: 'github_token'
                         )
                     }
-                    sh 'ls -la ${WORKSPACE}'
                     // Now, run asset upload from the workspace root (where bundle.zip is created)
                     uploadGithubReleaseAsset(
                         credentialId: 'github_token',
                         repository: 'mxk77/titra',
                         tagName: "v${version}",
                         uploadAssets: [
-                            [filePath: 'bundle.zip']
+                            [filePath: "${env.WORKSPACE}/bundle.zip"]
                         ]
                     )
                 }

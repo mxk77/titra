@@ -119,6 +119,7 @@ pipeline {
             steps {
                 sh 'rm -f bundle.zip'
                 zip zipFile: 'bundle.zip', dir: 'output/bundle', archive: true
+                stash includes: 'bundle.zip', name: 'bundle'
             }
         }
 
@@ -128,6 +129,7 @@ pipeline {
                 branch 'master'
             }
             steps {
+                unstash 'bundle'
                 script {
                     def version, commit
                     // Change directory to 'titra' to process package.json and create the release

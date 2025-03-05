@@ -138,25 +138,23 @@ pipeline {
                         def commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                         echo "Using commit: ${commit}"
                         
-                        // Create the GitHub release and upload assets using the uploadAssets parameter.
                         createGitHubRelease(
                             repository: 'mxk77/titra',
                             tag: "v${version}",
                             commitish: commit,
                             name: "v${version}",
-                            bodyText: "Release created by Jenkins for version v${version}",
+                            body: "Release created by Jenkins for version v${version}",
                             draft: false,
                             prerelease: false,
                             credentialId: 'github_token',
-                            uploadAssets: [
-                                [filePath: '../bundle.zip', assetName: 'bundle.zip', contentType: 'application/zip']
+                            assets: [
+                                [filePath: '../bundle.zip', name: 'bundle.zip', contentType: 'application/zip']
                             ]
                         )
                     }
                 }
             }
         }
-
 
         // Transfer bundle.zip via SSH to a remote server, for production only (master or release/hotfix)
         stage('Transfer bundle.zip via SSH') {

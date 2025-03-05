@@ -33,6 +33,9 @@ pipeline {
                         extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'titra']],
                         userRemoteConfigs: scm.userRemoteConfigs
                     ])
+                    // Capture the commit hash returned by checkout
+                    env.COMMIT_HASH = scmVars.GIT_COMMIT
+                    echo "Checked out commit ${env.COMMIT_HASH}"
                 }
             }
         }
@@ -133,14 +136,12 @@ pipeline {
                         def pkg = readJSON file: 'package.json'
                         def version = pkg.version
                         echo "Package version: ${version}"
-
-                        def commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
-                        echo "Using commit: ${commit}"
+                        cho "Using commit: ${env.COMMIT_HASH}"
                         
                         createGitHubRelease(
                             repository: 'mxk77/titra',
                             tag: "v${version}",
-                            commitish: env.GIT_COMMIT,
+                            commitish: eenv.COMMIT_HASH,
                             name: "v${version}",
                             bodyText: "Release created by Jenkins for version v${version}",
                             draft: false,
@@ -152,7 +153,7 @@ pipeline {
                         uploadGithubReleaseAsset(
                             repository: 'mxk77/titra',
                             tag: "v${version}",
-                            commitish: env.GIT_COMMIT,
+                            commitish: env.COMMIT_HASH,
                             filePath: '../bundle.zip',
                             assetName: 'bundle.zip',
                             contentType: 'application/zip',

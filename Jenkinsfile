@@ -138,6 +138,7 @@ pipeline {
                         def commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                         echo "Using commit: ${commit}"
                         
+                        // Create the GitHub release and upload assets using the uploadAssets parameter.
                         createGitHubRelease(
                             repository: 'mxk77/titra',
                             tag: "v${version}",
@@ -146,18 +147,10 @@ pipeline {
                             bodyText: "Release created by Jenkins for version v${version}",
                             draft: false,
                             prerelease: false,
-                            credentialId: 'github_token'
-                        )
-
-                        
-                        uploadGithubReleaseAsset(
-                            repository: 'mxk77/titra',
-                            tag: "v${version}",
-                            commitish: commit,
-                            filePath: '../bundle.zip',
-                            assetName: 'bundle.zip',
-                            contentType: 'application/zip',
-                            credentialId: 'github_token'
+                            credentialId: 'github_token',
+                            uploadAssets: [
+                                [filePath: '../bundle.zip', assetName: 'bundle.zip', contentType: 'application/zip']
+                            ]
                         )
                     }
                 }

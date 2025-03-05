@@ -138,23 +138,35 @@ pipeline {
                         def commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                         echo "Using commit: ${commit}"
                         
+                        // Write release notes to a file (Markdown)
+                        writeFile file: 'release-notes.md', text: "Release created by Jenkins for version v${version}"
+                        
+                        // Create the GitHub release using the release notes file for the body
                         createGitHubRelease(
                             repository: 'mxk77/titra',
                             tag: "v${version}",
                             commitish: commit,
                             name: "v${version}",
-                            body: "Release created by Jenkins for version v${version}",
+                            bodyFile: 'release-notes.md',
                             draft: false,
                             prerelease: false,
+                            credentialId: 'github_token'
+                        )
+                        
+                        // Upload the asset separately
+                        uploadGithubReleaseAsset(
                             credentialId: 'github_token',
-                            assets: [
-                                [filePath: '../bundle.zip', name: 'bundle.zip', contentType: 'application/zip']
+                            repository: 'mxk77/titra',
+                            tagName: "v${version}",
+                            uploadAssets: [
+                                [filePath: '../bundle.zip']
                             ]
                         )
                     }
                 }
             }
         }
+
 
         // Transfer bundle.zip via SSH to a remote server, for production only (master or release/hotfix)
         stage('Transfer bundle.zip via SSH') {

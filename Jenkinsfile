@@ -132,32 +132,30 @@ pipeline {
                         def pkg = readJSON file: 'package.json'
                         def version = pkg.version
                         echo "Package version: ${version}"
-
-                        // Create a GitHub release using the plugin-provided step.
-                        githubRelease(
-                            repo: 'mxk77/titra',
-                            tagName: "v${version}",
-                            releaseName: "v${version}",
-                            body: "Release created by Jenkins for version v${version}",
+                        
+                        createGitHubRelease(
+                            repository: 'mxk77/titra',
+                            tag: "v${version}",
+                            name: "v${version}",
+                            bodyText: "Release created by Jenkins for version v${version}",
                             draft: false,
                             prerelease: false,
-                            credentialsId: 'github_token'
+                            credentialId: 'github_token'
                         )
-
-                        // Upload an asset (bundle.zip) to the created release.
-                        // Note: Adjust the file path if bundle.zip is not in the parent directory.
-                        githubUploadAsset(
-                            repo: 'mxk77/titra',
-                            tagName: "v${version}",
-                            file: '../bundle.zip',
+                        
+                        uploadGithubReleaseAsset(
+                            repository: 'mxk77/titra',
+                            tag: "v${version}",
+                            filePath: '../bundle.zip',
                             assetName: 'bundle.zip',
                             contentType: 'application/zip',
-                            credentialsId: 'github_token'
+                            credentialId: 'github_token'
                         )
                     }
                 }
             }
         }
+
 
         // Transfer bundle.zip via SSH to a remote server, for production only (master or release/hotfix)
         stage('Transfer bundle.zip via SSH') {

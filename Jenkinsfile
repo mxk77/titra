@@ -136,12 +136,14 @@ pipeline {
                         createGitHubRelease(
                             repository: 'mxk77/titra',
                             tag: "v${version}",
+                            commitish: env.GIT_COMMIT,
                             name: "v${version}",
                             bodyText: "Release created by Jenkins for version v${version}",
                             draft: false,
                             prerelease: false,
                             credentialId: 'github_token'
                         )
+
                         
                         uploadGithubReleaseAsset(
                             repository: 'mxk77/titra',

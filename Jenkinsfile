@@ -47,12 +47,12 @@ pipeline {
 
         // Optionally run lint on all branches except master (or you can expand to exclude release/hotfix if desired)
         stage('Lint Code') {
-            when {
-                expression {
-                    // Example: skip on master & release/hotfix
-                    !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
-                }
-            }
+            // when {
+            //     expression {
+            //         // Example: skip on master & release/hotfix
+            //         !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
+            //     }
+            // }
             steps {
                 dir('titra') {
                     sh 'npm run lint || true'
@@ -61,11 +61,11 @@ pipeline {
         }
 
         stage('Publish ESLint Report') {
-            when {
-                expression {
-                    !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
-                }
-            }
+            // when {
+            //     expression {
+            //         !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
+            //     }
+            // }
             steps {
                 dir('titra') {
                     recordIssues tools: [checkStyle(pattern: 'reports/eslint-report.xml')]
@@ -74,11 +74,11 @@ pipeline {
         }
 
         stage('Test') {
-            when {
-                expression {
-                    !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
-                }
-            }
+            // when {
+            //     expression {
+            //         !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
+            //     }
+            // }
             steps {
                 dir('titra') {
                     sh 'npm test'
@@ -152,31 +152,6 @@ pipeline {
             }
         }
 
-        // Transfer bundle.zip via SSH to a remote server, for production only (master or release/hotfix)
-        stage('Transfer bundle.zip via SSH') {
-            when {
-                expression {
-                    env.BRANCH_NAME == 'master' ||
-                    env.BRANCH_NAME.startsWith('release/') ||
-                    env.BRANCH_NAME.startsWith('hotfix/')
-                }
-            }
-            steps {
-                sshPublisher(publishers: [
-                    sshPublisherDesc(
-                        configName: 'RemoteAnsibleServer',
-                        transfers: [
-                            sshTransfer(
-                                sourceFiles: 'bundle.zip',
-                                remoteDirectory: '/artifacts/',
-                                cleanRemote: true
-                            )
-                        ],
-                        verbose: true
-                    )
-                ])
-            }
-        }
     }
 
     /////////////////////////////////////////////////////////////

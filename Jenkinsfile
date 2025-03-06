@@ -122,52 +122,29 @@ pipeline {
             }
         }
 
-        // Publish release to GitHub only on master
-        stage('Publish to GitHub Releases') {
-            when {
-                branch 'master'
-            }
+        // Publish to GitHub Releases
+        stage('Publish Release with gh') {
+            when { branch 'master' }
             steps {
-                dir('titra') {
-                    withCredentials([string(credentialsId: 'github_token', variable: 'GITHUB_TOKEN')]) {
-                        script {
-                            // Read package.json and extract version
+                script {
+                    // Inject the GitHub token into the environment variable GH_TOKEN
+                    withCredentials([string(credentialsId: 'github_token', variable: 'GH_TOKEN')]) {
+                        // Switch to the titra directory where all files are present
+                        dir('titra') {
                             def pkg = readJSON file: 'package.json'
                             def version = pkg.version
                             echo "Package version: ${version}"
-
-                            // Build the release payload
-                            def releaseData = """{
-                                "tag_name": "v${version}",
-                                "target_commitish": "master",
-                                "name": "v${version}",
-                                "body": "Release created by Jenkins for version v${version}",
-                                "draft": false,
-                                "prerelease": false
-                            }"""
-                            writeFile file: 'releaseData.json', text: releaseData
-
-                            // Create the GitHub release
-                            def createReleaseResponse = sh(script: '''#!/bin/bash
-                                curl --silent --fail -X POST \\
-                                     -H "Authorization: token $GITHUB_TOKEN" \\
-                                     -H "Content-Type: application/json" \\
-                                     -d @releaseData.json \\
-                                     https://api.github.com/repos/mxk77/titra/releases
-                            ''', returnStdout: true).trim()
-
-                            // Extract the upload URL
-                            def releaseJson = readJSON text: createReleaseResponse
-                            def uploadUrl = releaseJson.upload_url.replaceAll("\\{.*\\}", "")
-                            echo "Upload URL: ${uploadUrl}"
-
-                            // Upload the bundle.zip
-                            sh """#!/bin/bash
-                                curl --fail -X POST \\
-                                     -H "Authorization: token \$GITHUB_TOKEN" \\
-                                     -H "Content-Type: application/zip" \\
-                                     --data-binary @../bundle.zip \\
-                                     "${uploadUrl}?name=bundle.zip"
+                            
+                            def commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                            echo "Using commit: ${commit}"
+                            
+                            writeFile file: 'release-notes.md', text: "Release created by Jenkins for version v${version}"
+                            
+                            sh """
+                                gh release create v${version} ../bundle.zip \\
+                                    --title "v${version}" \\
+                                    --notes "\$(cat release-notes.md)" \\
+                                    --target ${commit}
                             """
                         }
                     }

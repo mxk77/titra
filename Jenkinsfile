@@ -53,7 +53,7 @@ pipeline {
             }
             steps {
                 dir('titra') {
-                    sh 'npm run lint || true'
+                    sh 'npm run lint'
                 }
             }
         }

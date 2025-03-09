@@ -13,10 +13,6 @@ pipeline {
         timeout(time: 10, unit: 'MINUTES')
     }
 
-    environment {
-        METEOR_SERVER = "http://192.168.50.9:80"
-    }
-
     /////////////////////////////////////////////////////////////
     // Stages
     /////////////////////////////////////////////////////////////
@@ -25,6 +21,9 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
+                    def config = readJSON file: 'config.json'
+                    env.METEOR_SERVER = config.METEOR_SERVER
+
                     // Explicit checkout to subdirectory "titra"
                     checkout([
                         $class: 'GitSCM',

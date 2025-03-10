@@ -13,10 +13,6 @@ pipeline {
         timeout(time: 10, unit: 'MINUTES')
     }
 
-    environment {
-        METEOR_SERVER = "http://192.168.50.9:80"
-    }
-
     /////////////////////////////////////////////////////////////
     // Stages
     /////////////////////////////////////////////////////////////
@@ -33,6 +29,11 @@ pipeline {
                         extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'titra']],
                         userRemoteConfigs: scm.userRemoteConfigs
                     ])
+
+                    dir('titra'){
+                        def config = readJSON file: 'config.json'
+                        env.METEOR_SERVER = config.METEOR_SERVER
+                    }
                 }
             }
         }
@@ -45,14 +46,13 @@ pipeline {
             }
         }
 
-        // Optionally run lint on all branches except master (or you can expand to exclude release/hotfix if desired)
         stage('Lint Code') {
-            // when {
-            //     expression {
-            //         // Example: skip on master & release/hotfix
-            //         !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
-            //     }
-            // }
+            when {
+                expression {
+                    // Example: skip on master & release/hotfix
+                    !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
+                }
+            }
             steps {
                 dir('titra') {
                     sh 'npm run lint || true'
@@ -86,7 +86,6 @@ pipeline {
             }
             post {
                 always {
-                    // Collect test results
                     dir('titra') {
                         junit 'reports/test-results.xml'
                     }
@@ -152,6 +151,31 @@ pipeline {
             }
         }
 
+        // Transfer bundle.zip via SSH to a remote server, for production only (master or release/hotfix)
+        stage('Transfer bundle.zip via SSH') {
+            when {
+                expression {
+                    env.BRANCH_NAME == 'master' ||
+                    env.BRANCH_NAME.startsWith('release/') ||
+                    env.BRANCH_NAME.startsWith('hotfix/')
+                }
+            }
+            steps {
+                sshPublisher(publishers: [
+                    sshPublisherDesc(
+                        configName: 'RemoteAnsibleServer',
+                        transfers: [
+                            sshTransfer(
+                                sourceFiles: 'bundle.zip',
+                                remoteDirectory: '/artifacts/',
+                                cleanRemote: true
+                            )
+                        ],
+                        verbose: true
+                    )
+                ])
+            }
+        }
     }
 
     /////////////////////////////////////////////////////////////

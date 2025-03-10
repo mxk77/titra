@@ -61,11 +61,11 @@ pipeline {
         }
 
         stage('Publish ESLint Report') {
-            // when {
-            //     expression {
-            //         !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
-            //     }
-            // }
+            when {
+                expression {
+                    !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
+                }
+            }
             steps {
                 dir('titra') {
                     recordIssues tools: [checkStyle(pattern: 'reports/eslint-report.xml')]
@@ -74,11 +74,11 @@ pipeline {
         }
 
         stage('Test') {
-            // when {
-            //     expression {
-            //         !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
-            //     }
-            // }
+            when {
+                expression {
+                    !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
+                }
+            }
             steps {
                 dir('titra') {
                     sh 'npm test'

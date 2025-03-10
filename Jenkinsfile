@@ -21,9 +21,6 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    def config = readJSON file: 'config.json'
-                    env.METEOR_SERVER = config.METEOR_SERVER
-
                     // Explicit checkout to subdirectory "titra"
                     checkout([
                         $class: 'GitSCM',
@@ -32,6 +29,9 @@ pipeline {
                         extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'titra']],
                         userRemoteConfigs: scm.userRemoteConfigs
                     ])
+
+                    def config = readJSON file: 'config.json'
+                    env.METEOR_SERVER = config.METEOR_SERVER
                 }
             }
         }

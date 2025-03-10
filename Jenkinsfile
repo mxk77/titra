@@ -30,8 +30,10 @@ pipeline {
                         userRemoteConfigs: scm.userRemoteConfigs
                     ])
 
-                    def config = readJSON file: 'config.json'
-                    env.METEOR_SERVER = config.METEOR_SERVER
+                    dir('titra'){
+                        def config = readJSON file: 'config.json'
+                        env.METEOR_SERVER = config.METEOR_SERVER
+                    }
                 }
             }
         }

@@ -150,32 +150,6 @@ pipeline {
                 }
             }
         }
-
-        // Transfer bundle.zip via SSH to a remote server, for production only (master or release/hotfix)
-        stage('Transfer bundle.zip via SSH') {
-            when {
-                expression {
-                    env.BRANCH_NAME == 'master' ||
-                    env.BRANCH_NAME.startsWith('release/') ||
-                    env.BRANCH_NAME.startsWith('hotfix/')
-                }
-            }
-            steps {
-                sshPublisher(publishers: [
-                    sshPublisherDesc(
-                        configName: 'RemoteAnsibleServer',
-                        transfers: [
-                            sshTransfer(
-                                sourceFiles: 'bundle.zip',
-                                remoteDirectory: '/artifacts/',
-                                cleanRemote: true
-                            )
-                        ],
-                        verbose: true
-                    )
-                ])
-            }
-        }
     }
 
     /////////////////////////////////////////////////////////////

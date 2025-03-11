@@ -49,7 +49,6 @@ pipeline {
         stage('Lint Code') {
             when {
                 expression {
-                    // Example: skip on master & release/hotfix
                     !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
                 }
             }
@@ -105,6 +104,22 @@ pipeline {
                 }
             }
         }
+
+        stage('Install Production Dependencies in Bundle') {
+            when {
+                expression {
+                    env.BRANCH_NAME == 'master' || 
+                    env.BRANCH_NAME.startsWith('release/') ||
+                    env.BRANCH_NAME.startsWith('hotfix/')
+                }
+            }
+            steps {
+                dir("$WORKSPACE/output/bundle/programs/server") {
+                    sh 'npm install --omit=dev'
+                }
+            }
+        }
+
 
         // Compress artifacts only if on master, release, or hotfix
         stage('Compress Artifacts') {

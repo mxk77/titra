@@ -115,7 +115,7 @@ pipeline {
             }
             steps {
                 dir("$WORKSPACE/output/bundle/programs/server") {
-                    sh 'npm install --omit=dev'
+                    sh 'npm install'
                 }
             }
         }

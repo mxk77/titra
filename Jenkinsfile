@@ -136,15 +136,13 @@ pipeline {
                         checkout scm
                         // Debug: List all files, including hidden ones
                     }
-                    dir('tirta'){
-                        // Build the docker image, passing the current build number as a tag.
-                        def appImage = docker.build("${env.DOCKER_USERNAME}/titra_app:${env.APP_VERSION}", "-f Dockerfile .")
+                // Build the docker image, passing the current build number as a tag.
+                    def appImage = docker.build("${env.DOCKER_USERNAME}/titra_app:${env.APP_VERSION}", "-f titra/Dockerfile .")
                     
-                        // Push the image to Docker Hub using Jenkins credentials
-                        docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-cred') {
-                            appImage.push("${env.APP_VERSION}")
-                            appImage.push("latest")
-                        }
+                    // Push the image to Docker Hub using Jenkins credentials
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-cred') {
+                        appImage.push("${env.APP_VERSION}")
+                        appImage.push("latest")
                     }
                 }
             }

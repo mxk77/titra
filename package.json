@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "titra",
-  "version": "1.0.031",
+  "version": "1.0.032",
   "private": true,
   "scripts": {
     "start": "meteor run",

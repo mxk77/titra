@@ -29,10 +29,12 @@ pipeline {
                         extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'titra']],
                         userRemoteConfigs: scm.userRemoteConfigs
                     ])
-
+                    
+                    // Extract Version
                     dir('titra'){
-                        def config = readJSON file: 'config.json'
-                        env.METEOR_SERVER = config.METEOR_SERVER
+                        def pkg = readJSON file: 'titra/package.json'
+                        env.APP_VERSION = pkg.version
+                        echo "App version: ${env.APP_VERSION}"
                     }
                 }
             }
@@ -105,22 +107,6 @@ pipeline {
             }
         }
 
-        stage('Install Production Dependencies in Bundle') {
-            when {
-                expression {
-                    env.BRANCH_NAME == 'master' || 
-                    env.BRANCH_NAME.startsWith('release/') ||
-                    env.BRANCH_NAME.startsWith('hotfix/')
-                }
-            }
-            steps {
-                dir("$WORKSPACE/output/bundle/programs/server") {
-                    sh 'npm install'
-                }
-            }
-        }
-
-
         // Compress artifacts only if on master, release, or hotfix
         stage('Compress Artifacts') {
             when {
@@ -136,6 +122,31 @@ pipeline {
             }
         }
 
+        // Stage: Build Docker Compose App
+        stage('Build Docker Compose App') {
+            when {
+                expression {
+                    env.BRANCH_NAME == 'master' || 
+                    env.BRANCH_NAME.startsWith('release/') ||
+                    env.BRANCH_NAME.startsWith('hotfix/')
+                }
+            }
+            steps {
+                script {
+                    sir('tirta'){
+                        // Build the docker image, passing the current build number as a tag.
+                    def appImage = docker.build("${env.DOCKER_USERNAME}/titra_app:${env.APP_VERSION}", "-f Dockerfile .")
+                    
+                    // Push the image to Docker Hub using Jenkins credentials
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-cred') {
+                        appImage.push("${env.APP_VERSION}")
+                        appImage.push("latest")
+                    }
+                    }
+                }
+            }
+        }
+
         // Publish to GitHub Releases
         stage('Publish Release with gh') {
             when { branch 'master' }
@@ -145,18 +156,14 @@ pipeline {
                     withCredentials([string(credentialsId: 'github_token', variable: 'GH_TOKEN')]) {
                         // Switch to the titra directory where all files are present
                         dir('titra') {
-                            def pkg = readJSON file: 'package.json'
-                            def version = pkg.version
-                            echo "Package version: ${version}"
-                            
                             def commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                             echo "Using commit: ${commit}"
                             
-                            writeFile file: 'release-notes.md', text: "Release created by Jenkins for version v${version}"
+                            writeFile file: 'release-notes.md', text: "Release created by Jenkins for version v${APP_VERSION}"
                             
                             sh """
-                                gh release create v${version} ../bundle.zip \\
-                                    --title "v${version}" \\
+                                gh release create v${APP_VERSION} ../bundle.zip \\
+                                    --title "v${APP_VERSION}" \\
                                     --notes "\$(cat release-notes.md)" \\
                                     --target ${commit}
                             """

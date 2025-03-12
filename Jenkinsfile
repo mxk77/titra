@@ -40,6 +40,19 @@ pipeline {
             }
         }
 
+        stage('Load .env') {
+            steps {
+                script {
+                    dir('titra'){
+                        def props = readProperties file: '.env'
+                        props.each { key, value ->
+                            env[key] = value
+                    }
+                    }
+                }
+            }
+        }
+
         stage('Install npm Dependencies') {
             steps {
                 dir('titra') {
@@ -119,6 +132,7 @@ pipeline {
             steps {
                 script {
                     dir('tirta'){
+                        sh 'ls -l'
                         // Build the docker image, passing the current build number as a tag.
                         def appImage = docker.build("${env.DOCKER_USERNAME}/titra_app:${env.APP_VERSION}", "-f Dockerfile .")
                     

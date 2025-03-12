@@ -135,10 +135,8 @@ pipeline {
                     dir('tirta') {
                         checkout scm
                         // Debug: List all files, including hidden ones
-                        sh 'ls -la'
                     }
                     dir('tirta'){
-                        sh 'ls -l'
                         // Build the docker image, passing the current build number as a tag.
                         def appImage = docker.build("${env.DOCKER_USERNAME}/titra_app:${env.APP_VERSION}", "-f Dockerfile .")
                     

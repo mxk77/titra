@@ -47,7 +47,7 @@ pipeline {
                         def props = readProperties file: '.env'
                         props.each { key, value ->
                             env[key] = value
-                    }
+                        }
                     }
                 }
             }
@@ -131,6 +131,12 @@ pipeline {
             }
             steps {
                 script {
+                    // Re-checkout repository into the 'tirta' folder to ensure all files (including Dockerfile) are present
+                    dir('tirta') {
+                        checkout scm
+                        // Debug: List all files, including hidden ones
+                        sh 'ls -la'
+                    }
                     dir('tirta'){
                         sh 'ls -l'
                         // Build the docker image, passing the current build number as a tag.

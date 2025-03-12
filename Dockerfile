@@ -12,7 +12,7 @@ WORKDIR /app
 # Copy the locally built bundle from the previous stage
 COPY --from=localbuilder /bundle ./bundle
 # Copy the entrypoint script and fix permissions
-COPY entrypoint.sh /docker/entrypoint.sh
+COPY titra/entrypoint.sh /docker/entrypoint.sh
 RUN chmod +x /docker/entrypoint.sh && chown -R appuser:appgroup /app
 EXPOSE 3000
 USER appuser

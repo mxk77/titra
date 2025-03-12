@@ -107,6 +107,31 @@ pipeline {
             }
         }
 
+        // Stage: Build Docker Compose App
+        stage('Build Docker Compose App') {
+            when {
+                expression {
+                    env.BRANCH_NAME == 'master' || 
+                    env.BRANCH_NAME.startsWith('release/') ||
+                    env.BRANCH_NAME.startsWith('hotfix/')
+                }
+            }
+            steps {
+                script {
+                    dir('tirta'){
+                        // Build the docker image, passing the current build number as a tag.
+                        def appImage = docker.build("${env.DOCKER_USERNAME}/titra_app:${env.APP_VERSION}", "-f Dockerfile .")
+                    
+                        // Push the image to Docker Hub using Jenkins credentials
+                        docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-cred') {
+                            appImage.push("${env.APP_VERSION}")
+                            appImage.push("latest")
+                        }
+                    }
+                }
+            }
+        }
+
         // Compress artifacts only if on master, release, or hotfix
         stage('Compress Artifacts') {
             when {
@@ -119,31 +144,6 @@ pipeline {
             steps {
                 sh 'rm -f bundle.zip'
                 zip zipFile: 'bundle.zip', dir: 'output/bundle', archive: true
-            }
-        }
-
-        // Stage: Build Docker Compose App
-        stage('Build Docker Compose App') {
-            when {
-                expression {
-                    env.BRANCH_NAME == 'master' || 
-                    env.BRANCH_NAME.startsWith('release/') ||
-                    env.BRANCH_NAME.startsWith('hotfix/')
-                }
-            }
-            steps {
-                script {
-                    sir('tirta'){
-                        // Build the docker image, passing the current build number as a tag.
-                    def appImage = docker.build("${env.DOCKER_USERNAME}/titra_app:${env.APP_VERSION}", "-f Dockerfile .")
-                    
-                    // Push the image to Docker Hub using Jenkins credentials
-                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-cred') {
-                        appImage.push("${env.APP_VERSION}")
-                        appImage.push("latest")
-                    }
-                    }
-                }
             }
         }
 

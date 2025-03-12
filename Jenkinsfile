@@ -32,7 +32,7 @@ pipeline {
                     
                     // Extract Version
                     dir('titra'){
-                        def pkg = readJSON file: 'titra/package.json'
+                        def pkg = readJSON file: 'package.json'
                         env.APP_VERSION = pkg.version
                         echo "App version: ${env.APP_VERSION}"
                     }

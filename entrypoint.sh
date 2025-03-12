@@ -1,18 +1,18 @@
 #!/bin/bash
-if [ -n "${MONGO_URL:-}" ]; then # Check for MongoDB connection if MONGO_URL is set
-	# Poll until we can successfully connect to MongoDB
-	echo 'Connecting to MongoDB...'
+if [ -n "${MONGO_URL:-}" ]; then
+    echo 'Connecting to MongoDB...'
+    # Change directory to where the Meteor MongoDB client is located within the bundle
     cd bundle/programs/server/npm/node_modules/meteor/npm-mongo/node_modules
-	node <<- 'EOJS'
+    node <<-'EOJS'
 	const mongoClient = require('mongodb').MongoClient;
 	setInterval(async function() {
 		let client;
 		try {
-			client = await mongoClient.connect(process.env.MONGO_URL);
+			client = await mongoClient.connect(process.env.MONGO_URL, { useUnifiedTopology: true });
 		} catch (err) {
-			console.error(err);
+			console.error(err.message);
 		}
-		if (client && client.topology.isConnected()) {
+		if (client && client.topology && client.topology.isConnected()) {
 			console.log('Successfully connected to MongoDB');
 			client.close();
 			process.exit(0);
@@ -20,6 +20,7 @@ if [ -n "${MONGO_URL:-}" ]; then # Check for MongoDB connection if MONGO_URL is 
 	}, 1000);
 	EOJS
 fi
+# Return to /app directory and start the application
 cd /app
 echo 'Starting titra...'
 exec "$@"

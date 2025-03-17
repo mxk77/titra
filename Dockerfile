@@ -24,6 +24,7 @@ RUN mkdir -p reports && npm test -- --reporter mocha-junit-reporter --reporter-o
 # -----------------------------------------------------------------------------
 FROM base AS meteor-build
 RUN curl https://install.meteor.com/?release=3.0 | sh
+ENV METEOR_ALLOW_SUPERUSER true
 RUN meteor --version
 RUN meteor build output --directory --server-only
 

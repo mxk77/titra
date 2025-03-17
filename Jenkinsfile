@@ -2,8 +2,6 @@ pipeline {
     agent { label 'titra' }
 
     options {
-        // Skip automatic 'checkout scm'
-        skipDefaultCheckout(true)
         // Discard old builds to keep Jenkins clean
         buildDiscarder(logRotator(numToKeepStr: '10'))
         // Time out any build taking longer than 10 minutes
@@ -11,38 +9,22 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
+        stage('Extract Version') {
             steps {
                 script {
-                    // Checkout repository into "titra" subdirectory
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: scm.branches,
-                        doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
-                        extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'titra']],
-                        userRemoteConfigs: scm.userRemoteConfigs
-                    ])
-                    
                     // Extract version from package.json
-                    dir('titra'){
-                        def pkg = readJSON file: 'package.json'
-                        env.APP_VERSION = pkg.version
-                        echo "App version: ${env.APP_VERSION}"
-                    }
+                    def pkg = readJSON file: 'package.json'
+                    env.APP_VERSION = pkg.version
+                    echo "App version: ${env.APP_VERSION}"
                 }
             }
         }
 
         stage('Lint') {
-            // when {
-            //     expression {
-            //         !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
-            //     }
-            // }
             steps {
                 script {
-                    // Build the lint stage image from our Dockerfile
-                    def lintImage = docker.build("mxk77/titra:lint", "-f titra/Dockerfile --target=lint .")
+                    // Build the lint stage image using our Dockerfile from the repository root
+                    def lintImage = docker.build("mxk77/titra:lint", "-f Dockerfile --target=lint .")
                     // Run a container to extract the ESLint report
                     sh '''
                     containerId=$(docker create mxk77/titra:lint)
@@ -60,15 +42,10 @@ pipeline {
         }
 
         stage('Test') {
-            // when {
-            //     expression {
-            //         !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
-            //     }
-            // }
             steps {
                 script {
-                    // Build the test stage image
-                    def testImage = docker.build("mxk77/titra:test", "-f titra/Dockerfile --target=test .")
+                    // Build the test stage image using our Dockerfile from the repository root
+                    def testImage = docker.build("mxk77/titra:test", "-f Dockerfile --target=test .")
                     // Run a container to extract the test results report
                     sh '''
                     containerId=$(docker create mxk77/titra:test)
@@ -89,7 +66,7 @@ pipeline {
             steps {
                 script {
                     // Build the final production image using our Dockerfile's final stage
-                    def finalImage = docker.build("mxk77/titra_app:${env.APP_VERSION}", "-f titra/Dockerfile --target=final .")
+                    def finalImage = docker.build("mxk77/titra_app:${env.APP_VERSION}", "-f Dockerfile --target=final .")
                     
                     // Push the image for master/release/hotfix branches
                     if (env.BRANCH_NAME == 'master' || env.BRANCH_NAME.startsWith('release/') || env.BRANCH_NAME.startsWith('hotfix/')) {
@@ -106,21 +83,19 @@ pipeline {
             when { branch 'master' }
             steps {
                 script {
-                    // Use GitHub token to publish a release
+                    // Publish a release using GitHub CLI
                     withCredentials([string(credentialsId: 'github_token', variable: 'GH_TOKEN')]) {
-                        dir('titra') {
-                            def commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
-                            echo "Using commit: ${commit}"
-                            
-                            writeFile file: 'release-notes.md', text: "Release created by Jenkins for version v${APP_VERSION}"
-                            
-                            sh """
-                                gh release create v${APP_VERSION} ../bundle.zip \\
-                                    --title "v${APP_VERSION}" \\
-                                    --notes "\$(cat release-notes.md)" \\
-                                    --target ${commit}
-                            """
-                        }
+                        def commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                        echo "Using commit: ${commit}"
+                        
+                        writeFile file: 'release-notes.md', text: "Release created by Jenkins for version v${APP_VERSION}"
+                        
+                        sh """
+                            gh release create v${APP_VERSION} ../bundle.zip \\
+                                --title "v${APP_VERSION}" \\
+                                --notes "\$(cat release-notes.md)" \\
+                                --target ${commit}
+                        """
                     }
                 }
             }

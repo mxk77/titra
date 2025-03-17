@@ -1,9 +1,6 @@
 pipeline {
     agent { label 'titra' }
 
-    /////////////////////////////////////////////////////////////
-    // Global pipeline options & environment
-    /////////////////////////////////////////////////////////////
     options {
         // Skip automatic 'checkout scm'
         skipDefaultCheckout(true)
@@ -13,15 +10,11 @@ pipeline {
         timeout(time: 10, unit: 'MINUTES')
     }
 
-    /////////////////////////////////////////////////////////////
-    // Stages
-    /////////////////////////////////////////////////////////////
     stages {
-
         stage('Checkout') {
             steps {
                 script {
-                    // Explicit checkout to subdirectory "titra"
+                    // Checkout repository into "titra" subdirectory
                     checkout([
                         $class: 'GitSCM',
                         branches: scm.branches,
@@ -30,7 +23,7 @@ pipeline {
                         userRemoteConfigs: scm.userRemoteConfigs
                     ])
                     
-                    // Extract Version
+                    // Extract version from package.json
                     dir('titra'){
                         def pkg = readJSON file: 'package.json'
                         env.APP_VERSION = pkg.version
@@ -40,137 +33,81 @@ pipeline {
             }
         }
 
-        stage('Load .env') {
+        stage('Lint') {
+            // when {
+            //     expression {
+            //         !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
+            //     }
+            // }
             steps {
                 script {
-                    dir('titra'){
-                        def props = readProperties file: '.env'
-                        props.each { key, value ->
-                            env[key] = value
-                        }
-                    }
+                    // Build the lint stage image from our Dockerfile
+                    def lintImage = docker.build("mxk77/titra:lint", "-f titra/Dockerfile --target=lint .")
+                    // Run a container to extract the ESLint report
+                    sh '''
+                    containerId=$(docker create mxk77/titra:lint)
+                    docker cp $containerId:/app/reports/eslint-report.xml ${WORKSPACE}/reports/eslint-report.xml || true
+                    docker rm $containerId
+                    '''
                 }
             }
-        }
-
-        stage('Install npm Dependencies') {
-            steps {
-                dir('titra') {
-                    sh 'npm install'
-                }
-            }
-        }
-
-        stage('Lint Code') {
-            when {
-                expression {
-                    !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
-                }
-            }
-            steps {
-                dir('titra') {
-                    sh 'npm run lint || true'
-                }
-            }
-        }
-
-        stage('Publish ESLint Report') {
-            when {
-                expression {
-                    !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
-                }
-            }
-            steps {
-                dir('titra') {
+            post {
+                always {
+                    // Publish the lint report to Jenkins
                     recordIssues tools: [checkStyle(pattern: 'reports/eslint-report.xml')]
                 }
             }
         }
 
         stage('Test') {
-            when {
-                expression {
-                    !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
-                }
-            }
+            // when {
+            //     expression {
+            //         !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/)
+            //     }
+            // }
             steps {
-                dir('titra') {
-                    sh 'npm test'
+                script {
+                    // Build the test stage image
+                    def testImage = docker.build("mxk77/titra:test", "-f titra/Dockerfile --target=test .")
+                    // Run a container to extract the test results report
+                    sh '''
+                    containerId=$(docker create mxk77/titra:test)
+                    docker cp $containerId:/app/reports/test-results.xml ${WORKSPACE}/reports/test-results.xml || true
+                    docker rm $containerId
+                    '''
                 }
             }
             post {
                 always {
-                    dir('titra') {
-                        junit 'reports/test-results.xml'
-                    }
+                    // Publish test results to Jenkins
+                    junit 'reports/test-results.xml'
                 }
             }
         }
 
-        // Build the Meteor app on all branches
-        stage('Build Meteor App') {
-            steps {
-                dir('titra') {
-                    sh '''
-                      meteor build "$WORKSPACE/output" \
-                        --directory \
-                        --server=${METEOR_SERVER}
-                    '''
-                }
-            }
-        }
-
-        // Stage: Build Docker Compose App
-        stage('Build Docker Compose App') {
-            when {
-                expression {
-                    env.BRANCH_NAME == 'master' || 
-                    env.BRANCH_NAME.startsWith('release/') ||
-                    env.BRANCH_NAME.startsWith('hotfix/')
-                }
-            }
+        stage('Build Final Image') {
             steps {
                 script {
-                    // Re-checkout repository into the 'tirta' folder to ensure all files (including Dockerfile) are present
-                    dir('tirta') {
-                        checkout scm
-                        // Debug: List all files, including hidden ones
-                    }
-                // Build the docker image, passing the current build number as a tag.
-                    def appImage = docker.build("${env.DOCKER_USERNAME}/titra_app:${env.APP_VERSION}", "-f titra/Dockerfile .")
+                    // Build the final production image using our Dockerfile's final stage
+                    def finalImage = docker.build("mxk77/titra_app:${env.APP_VERSION}", "-f titra/Dockerfile --target=final .")
                     
-                    // Push the image to Docker Hub using Jenkins credentials
-                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-cred') {
-                        appImage.push("${env.APP_VERSION}")
-                        appImage.push("latest")
+                    // Push the image for master/release/hotfix branches
+                    if (env.BRANCH_NAME == 'master' || env.BRANCH_NAME.startsWith('release/') || env.BRANCH_NAME.startsWith('hotfix/')) {
+                        docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-cred') {
+                            finalImage.push("${env.APP_VERSION}")
+                            finalImage.push("latest")
+                        }
                     }
                 }
             }
         }
 
-        // Compress artifacts only if on master, release, or hotfix
-        stage('Compress Artifacts') {
-            when {
-                expression {
-                    env.BRANCH_NAME == 'master' || 
-                    env.BRANCH_NAME.startsWith('release/') ||
-                    env.BRANCH_NAME.startsWith('hotfix/')
-                }
-            }
-            steps {
-                sh 'rm -f bundle.zip'
-                zip zipFile: 'bundle.zip', dir: 'output/bundle', archive: true
-            }
-        }
-
-        // Publish to GitHub Releases
         stage('Publish Release with gh') {
             when { branch 'master' }
             steps {
                 script {
-                    // Inject the GitHub token into the environment variable GH_TOKEN
+                    // Use GitHub token to publish a release
                     withCredentials([string(credentialsId: 'github_token', variable: 'GH_TOKEN')]) {
-                        // Switch to the titra directory where all files are present
                         dir('titra') {
                             def commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                             echo "Using commit: ${commit}"
@@ -190,12 +127,9 @@ pipeline {
         }
     }
 
-    /////////////////////////////////////////////////////////////
-    // Post-block for final cleanup or notifications
-    /////////////////////////////////////////////////////////////
     post {
         always {
-            // Example: Clean workspace to avoid leftover artifacts
+            // Clean workspace after the build
             cleanWs()
         }
         success {

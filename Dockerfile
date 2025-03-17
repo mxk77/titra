@@ -1,25 +1,48 @@
-# Stage 1: Builder – Copy the locally built bundle and install server dependencies
-FROM node:22 AS builder
+# -----------------------------------------------------------------------------
+# Stage 0: Base – Install common dependencies
+# -----------------------------------------------------------------------------
+FROM node:22 AS base
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
 
-# Copy the bundle from the build context (which must include "output/bundle")
-COPY output/bundle /app/bundle
+# -----------------------------------------------------------------------------
+# Stage 1: Lint – Run ESLint and generate a report (non-fatal)
+# -----------------------------------------------------------------------------
+FROM base AS lint
+RUN mkdir -p reports && npm run lint -- -f checkstyle -o reports/eslint-report.xml || true
 
-# Set the working directory to the server folder inside the bundle
+# -----------------------------------------------------------------------------
+# Stage 2: Test – Run unit/integration tests and generate a JUnit report
+# -----------------------------------------------------------------------------
+FROM base AS test
+RUN mkdir -p reports && npm test -- --reporter mocha-junit-reporter --reporter-options mochaFile=reports/test-results.xml
+
+# -----------------------------------------------------------------------------
+# Stage 3: Meteor Build
+# -----------------------------------------------------------------------------
+FROM base AS meteor-build
+RUN meteor build output --directory --server-only
+
+# -----------------------------------------------------------------------------
+# Stage 4: Artifact
+# -----------------------------------------------------------------------------
+FROM node:22 AS artifact-builder
+COPY --from=meteor-build /app/output/bundle /app/bundle
 WORKDIR /app/bundle/programs/server
-# Install production dependencies (omit dev dependencies if needed)
 RUN npm install --omit=dev
 
-# Stage 2: Final – Create a minimal, secure runtime image
-FROM node:22-alpine
+# -----------------------------------------------------------------------------
+# Stage 5: Final
+# -----------------------------------------------------------------------------
+FROM node:22-alpine AS final
 RUN apk add --no-cache bash ca-certificates \
 	&& addgroup -S appgroup \
 	&& adduser -S appuser -G appgroup
 WORKDIR /app
-# Copy the built bundle from the builder stage into the final image
-COPY --from=builder /app/bundle ./bundle
-# Copy the entrypoint script (assumed to be in the "tirta" folder) into the image
+COPY --from=artifact-builder /app/bundle ./bundle
 COPY titra/entrypoint.sh /docker/entrypoint.sh
-# Ensure the entrypoint script is executable and adjust ownership so appuser can access all files
 RUN chmod +x /docker/entrypoint.sh && chown -R appuser:appgroup /app
 EXPOSE 3000
 USER appuser

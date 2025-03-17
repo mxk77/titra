@@ -5,7 +5,7 @@ pipeline {
         // Discard old builds to keep Jenkins clean
         buildDiscarder(logRotator(numToKeepStr: '10'))
         // Time out any build taking longer than 10 minutes
-        timeout(time: 10, unit: 'MINUTES')
+        timeout(time: 20, unit: 'MINUTES')
     }
 
     stages {

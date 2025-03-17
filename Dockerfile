@@ -23,6 +23,8 @@ RUN mkdir -p reports && npm test -- --reporter mocha-junit-reporter --reporter-o
 # Stage 3: Meteor Build – Build the Meteor app using server-only option
 # -----------------------------------------------------------------------------
 FROM base AS meteor-build
+RUN curl https://install.meteor.com/?release=3.0 | sh
+RUN meteor --version
 RUN meteor build output --directory --server-only
 
 # -----------------------------------------------------------------------------

@@ -21,37 +21,39 @@ pipeline {
         }
 
         stage('Lint') {
+            // when {
+            //     expression { !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/) }
+            // }
             steps {
                 script {
-                    // Build the lint stage image using our Dockerfile from the repository root
                     def lintImage = docker.build("mxk77/titra:lint", "-f Dockerfile --target=lint .")
-                    // Run a container to extract the ESLint report
-                    sh '''
-                    containerId=$(docker create mxk77/titra:lint)
-                    docker cp $containerId:/app/reports/eslint-report.xml ${WORKSPACE}/reports/eslint-report.xml || true
-                    docker rm $containerId
-                    '''
+                    // Run commands inside a container – the container is automatically created and then cleaned up
+                    lintImage.inside {
+                        // Copy the report from the container's workspace to Jenkins workspace
+                        sh 'cp /app/reports/eslint-report.xml ${WORKSPACE}/reports/eslint-report.xml || true'
+                    }
                 }
             }
             post {
                 always {
-                    // Publish the lint report to Jenkins
                     recordIssues tools: [checkStyle(pattern: 'reports/eslint-report.xml')]
                 }
             }
         }
 
         stage('Test') {
+            // when {
+            //     expression { !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/) }
+            // }
             steps {
                 script {
                     // Build the test stage image using our Dockerfile from the repository root
                     def testImage = docker.build("mxk77/titra:test", "-f Dockerfile --target=test .")
-                    // Run a container to extract the test results report
-                    sh '''
-                    containerId=$(docker create mxk77/titra:test)
-                    docker cp $containerId:/app/reports/test-results.xml ${WORKSPACE}/reports/test-results.xml || true
-                    docker rm $containerId
-                    '''
+                    // Run a container with the built image
+                    testImage.inside {
+                        // Copy the test results report to the Jenkins workspace
+                        sh 'mkdir -p ${WORKSPACE}/reports && cp /app/reports/test-results.xml ${WORKSPACE}/reports/test-results.xml || true'
+                    }
                 }
             }
             post {
@@ -79,27 +81,6 @@ pipeline {
             }
         }
 
-        stage('Publish Release with gh') {
-            when { branch 'master' }
-            steps {
-                script {
-                    // Publish a release using GitHub CLI
-                    withCredentials([string(credentialsId: 'github_token', variable: 'GH_TOKEN')]) {
-                        def commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
-                        echo "Using commit: ${commit}"
-                        
-                        writeFile file: 'release-notes.md', text: "Release created by Jenkins for version v${APP_VERSION}"
-                        
-                        sh """
-                            gh release create v${APP_VERSION} ../bundle.zip \\
-                                --title "v${APP_VERSION}" \\
-                                --notes "\$(cat release-notes.md)" \\
-                                --target ${commit}
-                        """
-                    }
-                }
-            }
-        }
     }
 
     post {

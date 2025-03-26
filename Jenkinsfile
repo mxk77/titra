@@ -109,10 +109,6 @@ pipeline {
     }
     
     post {
-        always {
-            // Clean workspace after the build
-            cleanWs()
-        }
         success {
             echo "Build succeeded on branch: ${env.BRANCH_NAME}"
         }

@@ -1,13 +1,27 @@
 pipeline {
-    agent { label 'titra' }
-
+    agent { label params.AGENT_LABEL }
+    
+    parameters {
+        string(name: 'AGENT_LABEL', defaultValue: 'titra', description: 'Agent label to run the build')
+        string(name: 'NUM_BUILDS_TO_KEEP', defaultValue: '10', description: 'Number of builds to keep')
+        string(name: 'BUILD_TIMEOUT', defaultValue: '20', description: 'Build timeout in minutes')
+        string(name: 'LINT_IMAGE_NAME', defaultValue: 'mxk77/titra:lint', description: 'Docker image for linting')
+        string(name: 'TEST_IMAGE_NAME', defaultValue: 'mxk77/titra:test', description: 'Docker image for testing')
+        string(name: 'FINAL_IMAGE_BASE', defaultValue: 'mxk77/titra_app', description: 'Base Docker image name for the final image')
+        string(name: 'REGISTRY_URL', defaultValue: 'https://index.docker.io/v1/', description: 'Docker registry URL')
+        string(name: 'DOCKER_CRED', defaultValue: 'dockerhub-cred', description: 'Docker registry credentials ID')
+        string(name: 'MASTER_BRANCH', defaultValue: 'master', description: 'Name of the master branch')
+        string(name: 'RELEASE_REGEX', defaultValue: '^release/.*', description: 'Regex pattern for release branches')
+        string(name: 'HOTFIX_REGEX', defaultValue: '^hotfix/.*', description: 'Regex pattern for hotfix branches')
+    }
+    
     options {
         // Discard old builds to keep Jenkins clean
-        buildDiscarder(logRotator(numToKeepStr: '10'))
-        // Time out any build taking longer than 10 minutes
-        timeout(time: 20, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: params.NUM_BUILDS_TO_KEEP))
+        // Time out any build taking longer than the specified minutes
+        timeout(time: params.BUILD_TIMEOUT as Integer, unit: 'MINUTES')
     }
-
+    
     stages {
         stage('Extract Version') {
             steps {
@@ -19,14 +33,19 @@ pipeline {
                 }
             }
         }
-
+        
         stage('Lint') {
-            // when {
-            //     expression { !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/) }
-            // }
+            when {
+                expression { 
+                    // Run lint only if branch is not master, release, or hotfix
+                    !(env.BRANCH_NAME == params.MASTER_BRANCH || 
+                      env.BRANCH_NAME ==~ params.RELEASE_REGEX || 
+                      env.BRANCH_NAME ==~ params.HOTFIX_REGEX)
+                }
+            }
             steps {
                 script {
-                    def lintImage = docker.build("mxk77/titra:lint", "-f Dockerfile --target=lint .")
+                    def lintImage = docker.build(params.LINT_IMAGE_NAME, "-f Dockerfile --target=lint .")
                     // Run commands inside a container – the container is automatically created and then cleaned up
                     lintImage.inside {
                         // Copy the report from the container's workspace to Jenkins workspace
@@ -40,15 +59,20 @@ pipeline {
                 }
             }
         }
-
+        
         stage('Test') {
-            // when {
-            //     expression { !env.BRANCH_NAME.matches(/master|release\/.*|hotfix\/.*/) }
-            // }
+            when {
+                expression { 
+                    // Run tests only if branch is not master, release, or hotfix
+                    !(env.BRANCH_NAME == params.MASTER_BRANCH || 
+                      env.BRANCH_NAME ==~ params.RELEASE_REGEX || 
+                      env.BRANCH_NAME ==~ params.HOTFIX_REGEX)
+                }
+            }
             steps {
                 script {
                     // Build the test stage image using our Dockerfile from the repository root
-                    def testImage = docker.build("mxk77/titra:test", "-f Dockerfile --target=test .")
+                    def testImage = docker.build(params.TEST_IMAGE_NAME, "-f Dockerfile --target=test .")
                     // Run a container with the built image
                     testImage.inside {
                         // Copy the test results report to the Jenkins workspace
@@ -63,16 +87,18 @@ pipeline {
                 }
             }
         }
-
+        
         stage('Build Final Image') {
             steps {
                 script {
                     // Build the final production image using our Dockerfile's final stage
-                    def finalImage = docker.build("mxk77/titra_app:${env.APP_VERSION}", "-f Dockerfile --target=final .")
+                    def finalImage = docker.build("${params.FINAL_IMAGE_BASE}:${env.APP_VERSION}", "-f Dockerfile --target=final .")
                     
-                    // Push the image for master/release/hotfix branches
-                    if (env.BRANCH_NAME == 'master' || env.BRANCH_NAME.startsWith('release/') || env.BRANCH_NAME.startsWith('hotfix/')) {
-                        docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-cred') {
+                    // Push the image for master, release, or hotfix branches
+                    if (env.BRANCH_NAME == params.MASTER_BRANCH || 
+                        env.BRANCH_NAME ==~ params.RELEASE_REGEX || 
+                        env.BRANCH_NAME ==~ params.HOTFIX_REGEX) {
+                        docker.withRegistry(params.REGISTRY_URL, params.DOCKER_CRED) {
                             finalImage.push("${env.APP_VERSION}")
                             finalImage.push("latest")
                         }
@@ -80,9 +106,8 @@ pipeline {
                 }
             }
         }
-
     }
-
+    
     post {
         always {
             // Clean workspace after the build

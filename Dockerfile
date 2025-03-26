@@ -23,10 +23,12 @@ RUN mkdir -p reports && npm test -- --reporter mocha-junit-reporter --reporter-o
 # Stage 3: Meteor Build – Build the Meteor app using server-only option
 # -----------------------------------------------------------------------------
 FROM base AS meteor-build
-RUN curl https://install.meteor.com/?release=3.0 | sh
-ENV METEOR_ALLOW_SUPERUSER true
-RUN meteor --version
-RUN meteor build output --directory --server-only
+# Pin the Meteor release for reproducibility and better caching
+ENV METEOR_RELEASE=3.0.2
+ENV METEOR_ALLOW_SUPERUSER=true
+RUN curl https://install.meteor.com/?release=${METEOR_RELEASE} | sh && \
+	meteor --version && \
+	meteor build output --directory --server-only
 
 # -----------------------------------------------------------------------------
 # Stage 4: Artifact – Prepare the bundle for production
@@ -40,9 +42,9 @@ RUN npm install --omit=dev
 # Stage 5: Final – Create a minimal, secure runtime image
 # -----------------------------------------------------------------------------
 FROM node:22-alpine AS final
-RUN apk add --no-cache bash ca-certificates \
-	&& addgroup -S appgroup \
-	&& adduser -S appuser -G appgroup
+RUN apk add --no-cache bash ca-certificates && \
+	addgroup -S appgroup && \
+	adduser -S appuser -G appgroup
 WORKDIR /app
 COPY --from=artifact-builder /app/bundle ./bundle
 COPY entrypoint.sh /docker/entrypoint.sh

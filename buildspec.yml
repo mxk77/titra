@@ -8,8 +8,6 @@ env:
     MASTER_BRANCH: "master"
     RELEASE_REGEX: "^release/.*"
     HOTFIX_REGEX: "^hotfix/.*"
-  # AWS_ACCOUNT_ID and AWS_DEFAULT_REGION should be provided by the environment
-  # BRANCH_NAME is expected to be passed by CodePipeline from GitHub
 
 phases:
   install:

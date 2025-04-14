@@ -6,6 +6,8 @@ env:
     TEST_IMAGE_NAME: "titra/app-image:test"
     FINAL_IMAGE_BASE: "titra/app-image"
     MASTER_BRANCH: "master"
+    RELEASE_BRANCH_PATTERN: "release/*"
+    HOTFIX_BRANCH_PATTERN: "hotfix/*"
     APP_VERSION: "latest"
 
 phases:
@@ -17,45 +19,43 @@ phases:
       - 'echo "Logging in to Amazon ECR at $ECR_URI..."'
       - "aws --version"
       - "aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_URI"
-      - 'echo "Pulling previous image for cache (if available)..."'
-      - "docker pull $ECR_URI:$APP_VERSION || true"
 
   build:
     commands:
       - 'echo "Determining if Lint and Test stages should run based on branch: $BRANCH_NAME"'
       - "mkdir -p reports"
-      # Lint stage: build the lint image if appropriate.
+      # Lint stage: build the lint image if branch matches the condition.
       - >
-        bash -c "if [[ -z \"\$BRANCH_NAME\" || ( \"\$BRANCH_NAME\" != \"\$MASTER_BRANCH\" && \"\$BRANCH_NAME\" != release/* && \"\$BRANCH_NAME\" != hotfix/* ) ]]; then
-          echo 'Building lint image...'; docker build -t \$LINT_IMAGE_NAME --target=lint -f Dockerfile .;
+        bash -c "if [[ -z \"$BRANCH_NAME\" || ( \"$BRANCH_NAME\" != \"$MASTER_BRANCH\" && \"$BRANCH_NAME\" != $RELEASE_BRANCH_PATTERN && \"$BRANCH_NAME\" != $HOTFIX_BRANCH_PATTERN ) ]]; then
+          echo 'Building lint image...'; docker build -t $LINT_IMAGE_NAME --target=lint -f Dockerfile .;
         else
-          echo 'Skipping lint image build for branch: '\$BRANCH_NAME;
+          echo 'Skipping lint image build for branch: '$BRANCH_NAME;
         fi"
-      # Retrieve eslint report: run the container with a mounted reports volume.
+      # Generate lint report
       - >
-        bash -c "if [[ -z \"\$BRANCH_NAME\" || ( \"\$BRANCH_NAME\" != \"\$MASTER_BRANCH\" && \"\$BRANCH_NAME\" != release/* && \"\$BRANCH_NAME\" != hotfix/* ) ]]; then
+        bash -c "if [[ -z \"$BRANCH_NAME\" || ( \"$BRANCH_NAME\" != \"$MASTER_BRANCH\" && \"$BRANCH_NAME\" != $RELEASE_BRANCH_PATTERN && \"$BRANCH_NAME\" != $HOTFIX_BRANCH_PATTERN ) ]]; then
           echo 'Generating lint report...';
-          docker run --rm -v \$(pwd)/reports:/workspace/reports \$LINT_IMAGE_NAME sh -c \"cp /app/reports/eslint-report.xml /workspace/reports/eslint-report.xml || true\";
+          docker run --rm -v $(pwd)/reports:/workspace/reports $LINT_IMAGE_NAME sh -c \"cp /app/reports/eslint-report.xml /workspace/reports/eslint-report.xml || true\";
         else
-          echo 'Skipping lint report generation for branch: '\$BRANCH_NAME;
+          echo 'Skipping lint report generation for branch: '$BRANCH_NAME;
         fi"
       - 'echo "Converting eslint checkstyle report to junit format"'
-      - "xsltproc checkstyle-to-junit.xsl reports/eslint-report.xml > reports/eslint-report-junit.xml || true"
+      - "xsltproc checkstyle2junit.xslt reports/eslint-report.xml > reports/eslint-report-junit.xml || true"
 
-      # Test stage: build the test image if appropriate.
+      # Test stage: build the test image if branch matches the condition.
       - >
-        bash -c "if [[ -z \"\$BRANCH_NAME\" || ( \"\$BRANCH_NAME\" != \"\$MASTER_BRANCH\" && \"\$BRANCH_NAME\" != release/* && \"\$BRANCH_NAME\" != hotfix/* ) ]]; then
-          echo 'Building test image...'; docker build -t \$TEST_IMAGE_NAME --target=test -f Dockerfile .;
+        bash -c "if [[ -z \"$BRANCH_NAME\" || ( \"$BRANCH_NAME\" != \"$MASTER_BRANCH\" && \"$BRANCH_NAME\" != $RELEASE_BRANCH_PATTERN && \"$BRANCH_NAME\" != $HOTFIX_BRANCH_PATTERN ) ]]; then
+          echo 'Building test image...'; docker build -t $TEST_IMAGE_NAME --target=test -f Dockerfile .;
         else
-          echo 'Skipping test image build for branch: '\$BRANCH_NAME;
+          echo 'Skipping test image build for branch: '$BRANCH_NAME;
         fi"
-      # Retrieve test report using a similar volume mount approach.
+      # Generate test report.
       - >
-        bash -c "if [[ -z \"\$BRANCH_NAME\" || ( \"\$BRANCH_NAME\" != \"\$MASTER_BRANCH\" && \"\$BRANCH_NAME\" != release/* && \"\$BRANCH_NAME\" != hotfix/* ) ]]; then
+        bash -c "if [[ -z \"$BRANCH_NAME\" || ( \"$BRANCH_NAME\" != \"$MASTER_BRANCH\" && \"$BRANCH_NAME\" != $RELEASE_BRANCH_PATTERN && \"$BRANCH_NAME\" != $HOTFIX_BRANCH_PATTERN ) ]]; then
           echo 'Generating test report...';
-          docker run --rm -v \$(pwd)/reports:/workspace/reports \$TEST_IMAGE_NAME sh -c \"mkdir -p /workspace/reports && cp /app/reports/test-results.xml /workspace/reports/test-results.xml || true\";
+          docker run --rm -v $(pwd)/reports:/workspace/reports $TEST_IMAGE_NAME sh -c \"mkdir -p /workspace/reports && cp /app/reports/test-results.xml /workspace/reports/test-results.xml || true\";
         else
-          echo 'Skipping test report generation for branch: '\$BRANCH_NAME;
+          echo 'Skipping test report generation for branch: '$BRANCH_NAME;
         fi"
       - 'echo "Building final production image with cache..."'
       - "docker build --cache-from $ECR_URI:$APP_VERSION --tag $ECR_URI:$APP_VERSION --target=final -f Dockerfile ."

@@ -47,7 +47,7 @@ phases:
           echo "Building lint image..."
           docker build -t $LINT_IMAGE_NAME --target=lint -f Dockerfile .
           echo "Running lint container to generate report..."
-          docker run --rm $LINT_IMAGE_NAME sh -c "mkdir -p /workspace/reports && cp /app/reports/eslint-report.xml /workspace/reports/eslint-report.xml || true"
+          docker run --rm $LINT_IMAGE_NAME sh -c "mkdir -p reports && cp /app/reports/eslint-report.xml reports/eslint-report.xml || true"
         else
           echo "Lint stage skipped for branch: $BRANCH_NAME"
         fi
@@ -57,7 +57,7 @@ phases:
           echo "Building test image..."
           docker build -t $TEST_IMAGE_NAME --target=test -f Dockerfile .
           echo "Running test container to generate report..."
-          docker run --rm $TEST_IMAGE_NAME sh -c "mkdir -p /workspace/reports && cp /app/reports/test-results.xml /workspace/reports/test-results.xml || true"
+          docker run --rm $TEST_IMAGE_NAME sh -c "mkdir -p reports && cp /app/reports/test-results.xml reports/test-results.xml || true"
         else
           echo "Test stage skipped for branch: $BRANCH_NAME"
         fi
@@ -68,8 +68,7 @@ phases:
       - |
         if [[ "$BRANCH_NAME" == "$MASTER_BRANCH" || "$BRANCH_NAME" =~ $RELEASE_REGEX || "$BRANCH_NAME" =~ $HOTFIX_REGEX ]]; then
           echo "Tagging and pushing final image to ECR..."
-          # Define the full ECR image URI using the AWS_ACCOUNT_ID and AWS_DEFAULT_REGION
-          - export ECR_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${FINAL_IMAGE_BASE}
+          export ECR_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${FINAL_IMAGE_BASE}
           docker tag ${FINAL_IMAGE_BASE}:${APP_VERSION} ${ECR_URI}:${APP_VERSION}
           docker tag ${FINAL_IMAGE_BASE}:${APP_VERSION} ${ECR_URI}:latest
           docker push ${ECR_URI}:${APP_VERSION}
@@ -82,13 +81,14 @@ phases:
     commands:
       - echo "Build phase complete for branch: $BRANCH_NAME"
     reports:
-      # CodeBuild can collect test reports if the file pattern matches JUnit/XML results
       TestReports:
         files:
-          - "reports/test-results.xml"
+          - "test-results.xml"
+        base-directory: "reports"
       LintReports:
         files:
-          - "reports/eslint-report.xml"
+          - "eslint-report.xml"
+        base-directory: "reports"
 
 artifacts:
   files:

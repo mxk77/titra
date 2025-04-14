@@ -9,19 +9,13 @@ env:
     RELEASE_REGEX: "^release/.*"
     HOTFIX_REGEX: "^hotfix/.*"
 
-phases:
-  install:
-    runtime-versions:
-      nodejs: 14
-    commands:
-      - echo "Installing node dependencies..."
-      - npm install
+    # Set a default application version.
+    APP_VERSION: "latest"
 
+phases:
   pre_build:
     commands:
-      - echo "Extracting application version from package.json..."
-      - export APP_VERSION=$(node -pe "require('./package.json').version")
-      - echo "Application version is: $APP_VERSION"
+      - echo "Using application version: $APP_VERSION"
       - echo "Logging in to Amazon ECR..."
       - aws --version
       - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)
@@ -50,8 +44,4 @@ phases:
         files:
           - "eslint-report.xml"
         base-directory: "reports"
-
-artifacts:
-  files:
-    - "**/*"
   discard-paths: yes

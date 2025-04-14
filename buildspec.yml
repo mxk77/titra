@@ -16,8 +16,7 @@ phases:
       - 'echo "Using application version: $APP_VERSION"'
       - 'echo "Logging in to Amazon ECR..."'
       - "aws --version"
-      - "$(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)"
-
+      - "aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
   build:
     commands:
       - 'echo "Determining if Lint and Test stages should run based on branch: $BRANCH_NAME"'
@@ -29,16 +28,16 @@ phases:
       - 'echo "Building final production image..."'
       - "docker build -t ${FINAL_IMAGE_BASE}:${APP_VERSION} --target=final -f Dockerfile ."
       - 'if [[ "$BRANCH_NAME" == "$MASTER_BRANCH" || "$BRANCH_NAME" =~ $RELEASE_REGEX || "$BRANCH_NAME" =~ $HOTFIX_REGEX ]]; then echo "Tagging and pushing final image to ECR..."; export ECR_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${FINAL_IMAGE_BASE}; docker tag ${FINAL_IMAGE_BASE}:${APP_VERSION} ${ECR_URI}:${APP_VERSION}; docker tag ${FINAL_IMAGE_BASE}:${APP_VERSION} ${ECR_URI}:latest; docker push ${ECR_URI}:${APP_VERSION}; docker push ${ECR_URI}:latest; else echo "Push stage skipped for branch: $BRANCH_NAME"; fi'
-
   post_build:
     commands:
       - 'echo "Build phase complete for branch: $BRANCH_NAME"'
-    reports:
-      TestReports:
-        files:
-          - "test-results.xml"
-        base-directory: "reports"
-      LintReports:
-        files:
-          - "eslint-report.xml"
-        base-directory: "reports"
+
+reports:
+  TestReports:
+    files:
+      - "test-results.xml"
+    base-directory: "reports"
+  LintReports:
+    files:
+      - "eslint-report.xml"
+    base-directory: "reports"

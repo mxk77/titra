@@ -2,13 +2,16 @@ version: 0.2
 
 env:
   variables:
-    LINT_IMAGE_NAME: "mxk77/titra:lint"
-    TEST_IMAGE_NAME: "mxk77/titra:test"
-    FINAL_IMAGE_BASE: "mxk77/titra_app"
+    LINT_IMAGE_NAME: "titra/app-image:lint"
+    TEST_IMAGE_NAME: "titra/app-image:test"
+    # Use the correct ECR repository for your production image and cache.
+    FINAL_IMAGE_BASE: "titra/app-image"
     MASTER_BRANCH: "master"
     RELEASE_REGEX: "^release/.*"
     HOTFIX_REGEX: "^hotfix/.*"
     APP_VERSION: "latest" # or set a semantic version; can be overridden in project settings
+    # Optionally define BRANCH_NAME if not provided by your pipeline.
+    # BRANCH_NAME: "develop"
 
 phases:
   pre_build:
@@ -25,40 +28,41 @@ phases:
   build:
     commands:
       - 'echo "Determining if Lint and Test stages should run based on branch: $BRANCH_NAME"'
+      # Lint stage: run if branch is empty OR not master/release/hotfix.
       - >
-        bash -c "if [[ \"\$BRANCH_NAME\" == \"\$MASTER_BRANCH\" || \"\$BRANCH_NAME\" =~ \$RELEASE_REGEX || \"\$BRANCH_NAME\" =~ \$HOTFIX_REGEX ]]; then
-          echo 'Skipping Lint and Test stages for branch: \$BRANCH_NAME'; export SKIP_TESTS=true;
-        else
-          export SKIP_TESTS=false;
-        fi"
-      - "mkdir -p reports"
-      - >
-        bash -c "if [ \"\$SKIP_TESTS\" = \"false\" ]; then
+        bash -c "if [[ -z \"\$BRANCH_NAME\" || ( \"\$BRANCH_NAME\" != \"\$MASTER_BRANCH\" && \"\$BRANCH_NAME\" !~ \$RELEASE_REGEX && \"\$BRANCH_NAME\" !~ \$HOTFIX_REGEX ) ]]; then
           echo 'Building lint image...'; docker build -t \$LINT_IMAGE_NAME --target=lint -f Dockerfile .;
+        else
+          echo 'Skipping lint image build for branch: '\$BRANCH_NAME;
         fi"
       - >
-        bash -c "if [ \"\$SKIP_TESTS\" = \"false\" ]; then
+        bash -c "if [[ -z \"\$BRANCH_NAME\" || ( \"\$BRANCH_NAME\" != \"\$MASTER_BRANCH\" && \"\$BRANCH_NAME\" !~ \$RELEASE_REGEX && \"\$BRANCH_NAME\" !~ \$HOTFIX_REGEX ) ]]; then
           echo 'Running lint container to generate report...'; docker run --rm \$LINT_IMAGE_NAME sh -c 'cat /app/reports/eslint-report.xml' > reports/eslint-report.xml || true;
         else
-          echo 'Lint stage skipped for branch: \$BRANCH_NAME';
+          echo 'Skipping lint report generation for branch: '\$BRANCH_NAME;
         fi"
+      # Test stage: same condition as lint stage.
       - >
-        bash -c "if [ \"\$SKIP_TESTS\" = \"false\" ]; then
+        bash -c "if [[ -z \"\$BRANCH_NAME\" || ( \"\$BRANCH_NAME\" != \"\$MASTER_BRANCH\" && \"\$BRANCH_NAME\" !~ \$RELEASE_REGEX && \"\$BRANCH_NAME\" !~ \$HOTFIX_REGEX ) ]]; then
           echo 'Building test image...'; docker build -t \$TEST_IMAGE_NAME --target=test -f Dockerfile .;
+        else
+          echo 'Skipping test image build for branch: '\$BRANCH_NAME;
         fi"
       - >
-        bash -c "if [ \"\$SKIP_TESTS\" = \"false\" ]; then
+        bash -c "if [[ -z \"\$BRANCH_NAME\" || ( \"\$BRANCH_NAME\" != \"\$MASTER_BRANCH\" && \"\$BRANCH_NAME\" !~ \$RELEASE_REGEX && \"\$BRANCH_NAME\" !~ \$HOTFIX_REGEX ) ]]; then
           echo 'Running test container to generate report...'; docker run --rm \$TEST_IMAGE_NAME sh -c 'cat /app/reports/test-results.xml' > reports/test-results.xml || true;
         else
-          echo 'Test stage skipped for branch: \$BRANCH_NAME';
+          echo 'Skipping test report generation for branch: '\$BRANCH_NAME;
         fi"
+      - "mkdir -p reports" # ensure local reports directory exists
       - 'echo "Building final production image with cache..."'
       - "docker build --cache-from $ECR_URI:$APP_VERSION --tag $ECR_URI:$APP_VERSION --target=final -f Dockerfile ."
+      # Push stage: push only if branch is defined and equals master or matches release/hotfix.
       - >
-        bash -c "if [[ \"\$BRANCH_NAME\" == \"\$MASTER_BRANCH\" || \"\$BRANCH_NAME\" =~ \$RELEASE_REGEX || \"\$BRANCH_NAME\" =~ \$HOTFIX_REGEX ]]; then
+        bash -c "if [[ -n \"\$BRANCH_NAME\" && ( \"\$BRANCH_NAME\" == \"\$MASTER_BRANCH\" || \"\$BRANCH_NAME\" =~ \$RELEASE_REGEX || \"\$BRANCH_NAME\" =~ \$HOTFIX_REGEX ) ]]; then
           echo 'Tagging and pushing final image to ECR...'; docker tag \$ECR_URI:\$APP_VERSION \$ECR_URI:latest; docker push \$ECR_URI:\$APP_VERSION; docker push \$ECR_URI:latest;
         else
-          echo 'Push stage skipped for branch: \$BRANCH_NAME';
+          echo 'Push stage skipped for branch: '\$BRANCH_NAME;
         fi"
 
   post_build:

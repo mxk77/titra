@@ -1,0 +1,96 @@
+version: 0.2
+
+env:
+  variables:
+    LINT_IMAGE_NAME: "mxk77/titra:lint"
+    TEST_IMAGE_NAME: "mxk77/titra:test"
+    FINAL_IMAGE_BASE: "mxk77/titra_app"
+    MASTER_BRANCH: "master"
+    RELEASE_REGEX: "^release/.*"
+    HOTFIX_REGEX: "^hotfix/.*"
+  # AWS_ACCOUNT_ID and AWS_DEFAULT_REGION should be provided by the environment
+  # BRANCH_NAME is expected to be passed by CodePipeline from GitHub
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 14 # adjust version as needed
+    commands:
+      - echo "Installing node dependencies..."
+      - npm install
+
+  pre_build:
+    commands:
+      - echo "Extracting application version from package.json..."
+      # Using a simple Node.js command to read package.json and print the version
+      - export APP_VERSION=$(node -pe "require('./package.json').version")
+      - echo "Application version is: $APP_VERSION"
+      - echo "Logging in to Amazon ECR..."
+      # Log in to ECR using the AWS CLI
+      - aws --version
+      - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)
+
+  build:
+    commands:
+      - echo "Determining if Lint and Test stages should run based on branch: $BRANCH_NAME"
+      # If the branch name is master, or matches release or hotfix patterns, skip lint and test
+      - |
+        if [[ "$BRANCH_NAME" == "$MASTER_BRANCH" || "$BRANCH_NAME" =~ $RELEASE_REGEX || "$BRANCH_NAME" =~ $HOTFIX_REGEX ]]; then
+          echo "Skipping Lint and Test stages for branch: $BRANCH_NAME"
+          export SKIP_TESTS=true
+        else
+          export SKIP_TESTS=false
+        fi
+      # Lint Stage: build and run the lint image, then copy out the lint report
+      - |
+        if [ "$SKIP_TESTS" = "false" ]; then
+          echo "Building lint image..."
+          docker build -t $LINT_IMAGE_NAME --target=lint -f Dockerfile .
+          echo "Running lint container to generate report..."
+          docker run --rm $LINT_IMAGE_NAME sh -c "mkdir -p /workspace/reports && cp /app/reports/eslint-report.xml /workspace/reports/eslint-report.xml || true"
+        else
+          echo "Lint stage skipped for branch: $BRANCH_NAME"
+        fi
+      # Test Stage: build and run the test image, then copy out the test report
+      - |
+        if [ "$SKIP_TESTS" = "false" ]; then
+          echo "Building test image..."
+          docker build -t $TEST_IMAGE_NAME --target=test -f Dockerfile .
+          echo "Running test container to generate report..."
+          docker run --rm $TEST_IMAGE_NAME sh -c "mkdir -p /workspace/reports && cp /app/reports/test-results.xml /workspace/reports/test-results.xml || true"
+        else
+          echo "Test stage skipped for branch: $BRANCH_NAME"
+        fi
+      # Build Final Image Stage
+      - echo "Building final production image..."
+      - docker build -t ${FINAL_IMAGE_BASE}:${APP_VERSION} --target=final -f Dockerfile .
+      # Push image to ECR only if on master, release, or hotfix branch
+      - |
+        if [[ "$BRANCH_NAME" == "$MASTER_BRANCH" || "$BRANCH_NAME" =~ $RELEASE_REGEX || "$BRANCH_NAME" =~ $HOTFIX_REGEX ]]; then
+          echo "Tagging and pushing final image to ECR..."
+          # Define the full ECR image URI using the AWS_ACCOUNT_ID and AWS_DEFAULT_REGION
+          - export ECR_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${FINAL_IMAGE_BASE}
+          docker tag ${FINAL_IMAGE_BASE}:${APP_VERSION} ${ECR_URI}:${APP_VERSION}
+          docker tag ${FINAL_IMAGE_BASE}:${APP_VERSION} ${ECR_URI}:latest
+          docker push ${ECR_URI}:${APP_VERSION}
+          docker push ${ECR_URI}:latest
+        else
+          echo "Push stage skipped for branch: $BRANCH_NAME"
+        fi
+
+  post_build:
+    commands:
+      - echo "Build phase complete for branch: $BRANCH_NAME"
+    reports:
+      # CodeBuild can collect test reports if the file pattern matches JUnit/XML results
+      TestReports:
+        files:
+          - "reports/test-results.xml"
+      LintReports:
+        files:
+          - "reports/eslint-report.xml"
+
+artifacts:
+  files:
+    - "**/*"
+  discard-paths: yes

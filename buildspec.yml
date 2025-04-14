@@ -39,6 +39,9 @@ phases:
         else
           echo 'Skipping lint report generation for branch: '\$BRANCH_NAME;
         fi"
+      - 'echo "Converting eslint checkstyle report to junit format"'
+      - "xsltproc checkstyle-to-junit.xsl reports/eslint-report.xml > reports/eslint-report-junit.xml || true"
+
       # Test stage: build the test image if appropriate.
       - >
         bash -c "if [[ -z \"\$BRANCH_NAME\" || ( \"\$BRANCH_NAME\" != \"\$MASTER_BRANCH\" && \"\$BRANCH_NAME\" != release/* && \"\$BRANCH_NAME\" != hotfix/* ) ]]; then
@@ -73,5 +76,5 @@ reports:
     base-directory: "reports"
   LintReports:
     files:
-      - "eslint-report.xml"
+      - "eslint-report-junit.xml"
     base-directory: "reports"

@@ -8,33 +8,31 @@ env:
     MASTER_BRANCH: "master"
     RELEASE_REGEX: "^release/.*"
     HOTFIX_REGEX: "^hotfix/.*"
-
-    # Set a default application version.
     APP_VERSION: "latest"
 
 phases:
   pre_build:
     commands:
-      - echo "Using application version: $APP_VERSION"
-      - echo "Logging in to Amazon ECR..."
-      - aws --version
-      - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)
+      - 'echo "Using application version: $APP_VERSION"'
+      - 'echo "Logging in to Amazon ECR..."'
+      - "aws --version"
+      - "$(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)"
 
   build:
     commands:
-      - echo "Determining if Lint and Test stages should run based on branch: $BRANCH_NAME"
-      - if [[ "$BRANCH_NAME" == "$MASTER_BRANCH" || "$BRANCH_NAME" =~ $RELEASE_REGEX || "$BRANCH_NAME" =~ $HOTFIX_REGEX ]]; then echo "Skipping Lint and Test stages for branch: $BRANCH_NAME"; export SKIP_TESTS=true; else export SKIP_TESTS=false; fi
-      - if [ "$SKIP_TESTS" = "false" ]; then echo "Building lint image..."; docker build -t $LINT_IMAGE_NAME --target=lint -f Dockerfile .; fi
-      - if [ "$SKIP_TESTS" = "false" ]; then echo "Running lint container to generate report..."; docker run --rm $LINT_IMAGE_NAME sh -c "mkdir -p reports && cp /app/reports/eslint-report.xml reports/eslint-report.xml || true"; else echo "Lint stage skipped for branch: $BRANCH_NAME"; fi
-      - if [ "$SKIP_TESTS" = "false" ]; then echo "Building test image..."; docker build -t $TEST_IMAGE_NAME --target=test -f Dockerfile .; fi
-      - if [ "$SKIP_TESTS" = "false" ]; then echo "Running test container to generate report..."; docker run --rm $TEST_IMAGE_NAME sh -c "mkdir -p reports && cp /app/reports/test-results.xml reports/test-results.xml || true"; else echo "Test stage skipped for branch: $BRANCH_NAME"; fi
-      - echo "Building final production image..."
-      - docker build -t ${FINAL_IMAGE_BASE}:${APP_VERSION} --target=final -f Dockerfile .
-      - if [[ "$BRANCH_NAME" == "$MASTER_BRANCH" || "$BRANCH_NAME" =~ $RELEASE_REGEX || "$BRANCH_NAME" =~ $HOTFIX_REGEX ]]; then echo "Tagging and pushing final image to ECR..."; export ECR_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${FINAL_IMAGE_BASE}; docker tag ${FINAL_IMAGE_BASE}:${APP_VERSION} ${ECR_URI}:${APP_VERSION}; docker tag ${FINAL_IMAGE_BASE}:${APP_VERSION} ${ECR_URI}:latest; docker push ${ECR_URI}:${APP_VERSION}; docker push ${ECR_URI}:latest; else echo "Push stage skipped for branch: $BRANCH_NAME"; fi
+      - 'echo "Determining if Lint and Test stages should run based on branch: $BRANCH_NAME"'
+      - 'if [[ "$BRANCH_NAME" == "$MASTER_BRANCH" || "$BRANCH_NAME" =~ $RELEASE_REGEX || "$BRANCH_NAME" =~ $HOTFIX_REGEX ]]; then echo "Skipping Lint and Test stages for branch: $BRANCH_NAME"; export SKIP_TESTS=true; else export SKIP_TESTS=false; fi'
+      - 'if [ "$SKIP_TESTS" = "false" ]; then echo "Building lint image..."; docker build -t $LINT_IMAGE_NAME --target=lint -f Dockerfile .; fi'
+      - 'if [ "$SKIP_TESTS" = "false" ]; then echo "Running lint container to generate report..."; docker run --rm $LINT_IMAGE_NAME sh -c "mkdir -p reports && cp /app/reports/eslint-report.xml reports/eslint-report.xml || true"; else echo "Lint stage skipped for branch: $BRANCH_NAME"; fi'
+      - 'if [ "$SKIP_TESTS" = "false" ]; then echo "Building test image..."; docker build -t $TEST_IMAGE_NAME --target=test -f Dockerfile .; fi'
+      - 'if [ "$SKIP_TESTS" = "false" ]; then echo "Running test container to generate report..."; docker run --rm $TEST_IMAGE_NAME sh -c "mkdir -p reports && cp /app/reports/test-results.xml reports/test-results.xml || true"; else echo "Test stage skipped for branch: $BRANCH_NAME"; fi'
+      - 'echo "Building final production image..."'
+      - "docker build -t ${FINAL_IMAGE_BASE}:${APP_VERSION} --target=final -f Dockerfile ."
+      - 'if [[ "$BRANCH_NAME" == "$MASTER_BRANCH" || "$BRANCH_NAME" =~ $RELEASE_REGEX || "$BRANCH_NAME" =~ $HOTFIX_REGEX ]]; then echo "Tagging and pushing final image to ECR..."; export ECR_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${FINAL_IMAGE_BASE}; docker tag ${FINAL_IMAGE_BASE}:${APP_VERSION} ${ECR_URI}:${APP_VERSION}; docker tag ${FINAL_IMAGE_BASE}:${APP_VERSION} ${ECR_URI}:latest; docker push ${ECR_URI}:${APP_VERSION}; docker push ${ECR_URI}:latest; else echo "Push stage skipped for branch: $BRANCH_NAME"; fi'
 
   post_build:
     commands:
-      - echo "Build phase complete for branch: $BRANCH_NAME"
+      - 'echo "Build phase complete for branch: $BRANCH_NAME"'
     reports:
       TestReports:
         files:
@@ -44,4 +42,3 @@ phases:
         files:
           - "eslint-report.xml"
         base-directory: "reports"
-  discard-paths: yes

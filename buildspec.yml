@@ -8,15 +8,23 @@ env:
     MASTER_BRANCH: "master"
     RELEASE_REGEX: "^release/.*"
     HOTFIX_REGEX: "^hotfix/.*"
-    APP_VERSION: "latest"
+    APP_VERSION: "latest" # or set a semantic version; can be overridden in project settings
 
 phases:
   pre_build:
     commands:
       - 'echo "Using application version: $APP_VERSION"'
-      - 'echo "Logging in to Amazon ECR..."'
+      # Get your AWS account ID
+      - "export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)"
+      # Build the ECR repository URI for the final image
+      - "export ECR_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${FINAL_IMAGE_BASE}"
+      - 'echo "Logging in to Amazon ECR at $ECR_URI..."'
       - "aws --version"
-      - "aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      # Log into ECR using the recommended CLI v2 method
+      - "aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_URI"
+      - 'echo "Pulling previous image for cache (if available)..."'
+      - "docker pull $ECR_URI:$APP_VERSION || true"
+
   build:
     commands:
       - 'echo "Determining if Lint and Test stages should run based on branch: $BRANCH_NAME"'
@@ -25,9 +33,11 @@ phases:
       - 'if [ "$SKIP_TESTS" = "false" ]; then echo "Running lint container to generate report..."; docker run --rm $LINT_IMAGE_NAME sh -c "mkdir -p reports && cp /app/reports/eslint-report.xml reports/eslint-report.xml || true"; else echo "Lint stage skipped for branch: $BRANCH_NAME"; fi'
       - 'if [ "$SKIP_TESTS" = "false" ]; then echo "Building test image..."; docker build -t $TEST_IMAGE_NAME --target=test -f Dockerfile .; fi'
       - 'if [ "$SKIP_TESTS" = "false" ]; then echo "Running test container to generate report..."; docker run --rm $TEST_IMAGE_NAME sh -c "mkdir -p reports && cp /app/reports/test-results.xml reports/test-results.xml || true"; else echo "Test stage skipped for branch: $BRANCH_NAME"; fi'
-      - 'echo "Building final production image..."'
-      - "docker build -t ${FINAL_IMAGE_BASE}:${APP_VERSION} --target=final -f Dockerfile ."
-      - 'if [[ "$BRANCH_NAME" == "$MASTER_BRANCH" || "$BRANCH_NAME" =~ $RELEASE_REGEX || "$BRANCH_NAME" =~ $HOTFIX_REGEX ]]; then echo "Tagging and pushing final image to ECR..."; export ECR_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${FINAL_IMAGE_BASE}; docker tag ${FINAL_IMAGE_BASE}:${APP_VERSION} ${ECR_URI}:${APP_VERSION}; docker tag ${FINAL_IMAGE_BASE}:${APP_VERSION} ${ECR_URI}:latest; docker push ${ECR_URI}:${APP_VERSION}; docker push ${ECR_URI}:latest; else echo "Push stage skipped for branch: $BRANCH_NAME"; fi'
+      - 'echo "Building final production image with cache..."'
+      # Use the pulled image as a cache source when building the final image
+      - "docker build --cache-from $ECR_URI:$APP_VERSION --tag $ECR_URI:$APP_VERSION --target=final -f Dockerfile ."
+      - 'if [[ "$BRANCH_NAME" == "$MASTER_BRANCH" || "$BRANCH_NAME" =~ $RELEASE_REGEX || "$BRANCH_NAME" =~ $HOTFIX_REGEX ]]; then echo "Tagging and pushing final image to ECR..."; docker tag $ECR_URI:$APP_VERSION $ECR_URI:latest; docker push $ECR_URI:$APP_VERSION; docker push $ECR_URI:latest; else echo "Push stage skipped for branch: $BRANCH_NAME"; fi'
+
   post_build:
     commands:
       - 'echo "Build phase complete for branch: $BRANCH_NAME"'

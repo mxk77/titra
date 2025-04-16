@@ -101,7 +101,7 @@ phases:
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=["cd /home/ec2-user/infra","terraform init -input=false","terraform apply -auto-approve"]' \
             --timeout-seconds 900 \
-            --cloud-watch-output-config '{"CloudWatchLogGroupName":"\/ssm\/terraform-run","CloudWatchOutputEnabled":true}' \
+            --cloud-watch-output-config '{"CloudWatchLogGroupName":"/ssm/terraform-run","CloudWatchOutputEnabled":true}' \
             --output text
         else
           echo "Non‑master branch ($BRANCH_NAME): running init only."
@@ -110,7 +110,7 @@ phases:
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=["cd /home/ec2-user/infra","terraform init -input=false"]' \
             --timeout-seconds 300 \
-            --cloud-watch-output-config '{"CloudWatchLogGroupName":"\/ssm\/terraform-run","CloudWatchOutputEnabled":true}' \
+            --cloud-watch-output-config '{"CloudWatchLogGroupName":"/ssm/terraform-run","CloudWatchOutputEnabled":true}' \
             --output text
         fi
 

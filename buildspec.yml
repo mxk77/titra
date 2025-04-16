@@ -81,9 +81,37 @@ phases:
       - "docker push $ECR_URI:$APP_VERSION"
       - "docker push $ECR_URI:latest"
 
+      # ─────────── Terraform on EC2 via SSM ───────────
+      - 'echo "Triggering Terraform init/apply on EC2 instance $INSTANCE_ID via SSM…"'
+      - |
+        if [ "$BRANCH_NAME" = "$MASTER_BRANCH" ]; then
+          echo "Master branch detected: running init & apply remotely."
+          aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters commands=[
+              "cd /home/ec2-user/infra",
+              "terraform init -input=false",
+              "terraform apply -auto-approve"
+            ] \
+            --timeout-seconds 900 \
+            --output text
+        else
+          echo "Non‑master branch ($BRANCH_NAME): running init only."
+          aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters commands=[
+              "cd /home/ec2-user/infra",
+              "terraform init -input=false"
+            ] \
+            --timeout-seconds 300 \
+            --output text
+        fi
+
   post_build:
     commands:
-      - 'echo "Build phase complete for branch: $BRANCH_NAME"'
+      - 'echo "Build and remote Terraform steps complete on branch: $BRANCH_NAME"'
 
 reports:
   TestReports:

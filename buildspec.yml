@@ -22,6 +22,16 @@ phases:
 
   build:
     commands:
+      # ────── Branch‑name normalization ──────
+      - |
+        # Normalize the branch name (from webhook or fallback to source version)
+        ACTUAL_BRANCH=${CODEBUILD_WEBHOOK_HEAD_REF#refs/heads/}
+        if [ -z "$ACTUAL_BRANCH" ]; then
+          ACTUAL_BRANCH=${CODEBUILD_SOURCE_VERSION#refs/heads/}
+        fi
+        export BRANCH_NAME=$ACTUAL_BRANCH
+        echo "Normalized branch name: $BRANCH_NAME"
+
       - 'echo "Determining if Lint and Test stages should run based on branch: $BRANCH_NAME"'
       - "mkdir -p reports"
 

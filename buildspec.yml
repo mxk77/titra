@@ -22,7 +22,7 @@ phases:
 
   build:
     commands:
-      # ────── Branch‑name normalization ──────
+      # ────── Branch‑name normalization ─────
       - |
         # Normalize the branch name (from webhook or fallback to source version)
         ACTUAL_BRANCH=${CODEBUILD_WEBHOOK_HEAD_REF#refs/heads/}

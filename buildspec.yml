@@ -91,7 +91,7 @@ phases:
       - "docker push $ECR_URI:$APP_VERSION"
       - "docker push $ECR_URI:latest"
 
-      #─────────── Terraform on EC2 via SSM ───────────
+      #Terraform on EC2 via SSM
       - |
         echo "Triggering Terraform on EC2 instance $INSTANCE_ID via SSM…"
         if [ "$BRANCH_NAME" = "$MASTER_BRANCH" ]; then
